@@ -1,0 +1,125 @@
+import type { Club, Student, User } from '@/types';
+
+export const mockStudents: Student[] = [
+  { id: 's1', name: 'Alice Johnson', email: 'alice@university.edu', studentId: 'STU001' },
+  { id: 's2', name: 'Bob Smith', email: 'bob@university.edu', studentId: 'STU002' },
+  { id: 's3', name: 'Charlie Brown', email: 'charlie@university.edu', studentId: 'STU003' },
+  { id: 's4', name: 'Diana Prince', email: 'diana@university.edu', studentId: 'STU004' },
+];
+
+export const mockUsers: User[] = [
+  { id: 'u1', name: 'Alice Johnson', email: 'alice@university.edu', role: 'student', studentId: 'STU001' },
+  { id: 'u2', name: 'Bob Smith', email: 'bob@university.edu', role: 'student', studentId: 'STU002' },
+  { id: 'f1', name: 'John Founder', email: 'john@university.edu', role: 'founder' },
+  { id: 'f2', name: 'Sarah Leader', email: 'sarah@university.edu', role: 'founder' },
+];
+
+export const mockClubs: Club[] = [
+  {
+    id: 'c1',
+    name: 'Computer Science Club',
+    description: 'A club for computer science enthusiasts to collaborate on projects and share knowledge.',
+    category: 'Technology',
+    founderId: 'f1',
+    founderName: 'John Founder',
+    memberCount: 45,
+    activities: [
+      {
+        id: 'a1',
+        title: 'Hackathon 2024',
+        description: 'Join us for a 24-hour coding competition with prizes!',
+        date: '2024-12-15',
+        location: 'Tech Building Room 101',
+        maxParticipants: 50,
+        registeredStudents: ['s1', 's2'],
+        clubId: 'c1',
+      },
+      {
+        id: 'a2',
+        title: 'Web Development Workshop',
+        description: 'Learn React and Next.js from industry experts.',
+        date: '2024-12-10',
+        location: 'Library Conference Room',
+        maxParticipants: 30,
+        registeredStudents: ['s1', 's3'],
+        clubId: 'c1',
+      },
+    ],
+  },
+  {
+    id: 'c2',
+    name: 'Photography Society',
+    description: 'Capture moments and share your passion for photography with fellow students.',
+    category: 'Arts',
+    founderId: 'f2',
+    founderName: 'Sarah Leader',
+    memberCount: 32,
+    activities: [
+      {
+        id: 'a3',
+        title: 'Nature Photography Walk',
+        description: 'Explore campus and capture beautiful nature shots.',
+        date: '2024-12-12',
+        location: 'Campus Park',
+        maxParticipants: 20,
+        registeredStudents: ['s2', 's4'],
+        clubId: 'c2',
+      },
+      {
+        id: 'a4',
+        title: 'Portrait Photography Workshop',
+        description: 'Learn professional portrait photography techniques.',
+        date: '2024-12-18',
+        location: 'Arts Building Studio',
+        maxParticipants: 15,
+        registeredStudents: ['s1'],
+        clubId: 'c2',
+      },
+    ],
+  },
+  {
+    id: 'c3',
+    name: 'Debate Team',
+    description: 'Sharpen your argumentation skills and participate in competitive debates.',
+    category: 'Academic',
+    founderId: 'f1',
+    founderName: 'John Founder',
+    memberCount: 28,
+    activities: [
+      {
+        id: 'a5',
+        title: 'Inter-University Debate Competition',
+        description: 'Compete against other universities in a formal debate tournament.',
+        date: '2024-12-20',
+        location: 'Main Auditorium',
+        maxParticipants: 8,
+        registeredStudents: ['s3', 's4'],
+        clubId: 'c3',
+      },
+    ],
+  },
+  {
+    id: 'c4',
+    name: 'Environmental Club',
+    description: 'Promote sustainability and environmental awareness on campus.',
+    category: 'Social',
+    founderId: 'f2',
+    founderName: 'Sarah Leader',
+    memberCount: 55,
+    activities: [
+      {
+        id: 'a6',
+        title: 'Campus Cleanup Day',
+        description: 'Help clean up the campus and promote environmental awareness.',
+        date: '2024-12-14',
+        location: 'Campus Grounds',
+        maxParticipants: 100,
+        registeredStudents: ['s1', 's2', 's3', 's4'],
+        clubId: 'c4',
+      },
+    ],
+  },
+];
+
+// Current user (simulating logged-in user)
+export const currentUser: User = mockUsers[0]; // Alice Johnson as student
