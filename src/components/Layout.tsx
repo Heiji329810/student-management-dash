@@ -1,18 +1,35 @@
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from './ThemeProvider';
-import { Users, Home, User, Moon, Sun } from 'lucide-react';
+import { Users, Home, User, Moon, Sun, LogOut, ClipboardList, PlusCircle, CalendarCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export function Layout() {
   const location = useLocation();
-  const { currentUser } = useApp();
+  const { currentUser, logout } = useApp();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  if (!currentUser) {
+    return null; // ProtectedRoute 会处理重定向
+  }
 
   const navigation = [
     { name: 'Home', href: '/', icon: Home },
     { name: 'Clubs & Organizations', href: '/clubs', icon: Users },
+    ...(currentUser.role === 'student'
+      ? [
+          { name: 'My Registrations', href: '/registrations', icon: ClipboardList },
+          { name: 'Create a Club', href: '/create-club', icon: PlusCircle },
+          { name: 'Manage Activities', href: '/manage-activities', icon: CalendarCog },
+        ]
+      : []),
     ...(currentUser.role === 'founder'
       ? [{ name: 'My Organizations', href: '/founder', icon: User }]
       : []),
@@ -23,11 +40,11 @@ export function Layout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 sticky top-0 z-40">
+        <header className="border-b border-border bg-background sticky top-0 z-40">
           <div className="container mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold text-foreground">
                   Student Management Dashboard
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -36,21 +53,37 @@ export function Layout() {
               </div>
               <div className="flex items-center gap-3">
                 <Button
-                  variant="ghost"
-                  size="icon"
+                  variant="outline"
+                  size="sm"
                   onClick={toggleTheme}
-                  className="h-9 w-9"
+                  className="gap-2"
+                  aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                 >
                   {theme === 'dark' ? (
-                    <Sun className="h-4 w-4" />
+                    <>
+                      <Sun className="h-4 w-4" />
+                      Light
+                    </>
                   ) : (
-                    <Moon className="h-4 w-4" />
+                    <>
+                      <Moon className="h-4 w-4" />
+                      Dark
+                    </>
                   )}
                 </Button>
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50">
                   <div className="h-2 w-2 rounded-full bg-green-500"></div>
                   <span className="text-sm font-medium capitalize">{currentUser.role}</span>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  登出
+                </Button>
               </div>
             </div>
           </div>
@@ -65,7 +98,7 @@ export function Layout() {
       </div>
 
       {/* Right Sidebar Navigation */}
-      <aside className="w-64 border-l bg-card/30 backdrop-blur supports-[backdrop-filter]:bg-card/30 sticky top-0 h-screen overflow-y-auto">
+      <aside className="w-64 border-l border-border bg-background sticky top-0 h-screen overflow-y-auto">
         <div className="p-6">
           <div className="mb-8">
             <h2 className="text-lg font-semibold mb-1">Navigation</h2>
@@ -98,13 +131,22 @@ export function Layout() {
             <div className="space-y-4">
               <div className="px-4">
                 <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">
-                  Account
+                  账户
                 </p>
                 <div className="space-y-2">
                   <div className="px-3 py-2 rounded-md bg-muted/50">
                     <p className="text-sm font-medium">{currentUser.name}</p>
                     <p className="text-xs text-muted-foreground">{currentUser.email}</p>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="w-full gap-2"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    登出
+                  </Button>
                 </div>
               </div>
             </div>

@@ -1,9 +1,16 @@
+import { Link } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
+import { CLUB_CATEGORIES } from '@/data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, GraduationCap, Sparkles, Trophy } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function Home() {
   const { clubs, currentUser, students } = useApp();
+  
+  if (!currentUser) {
+    return null;
+  }
   
   const totalActivities = clubs.reduce((sum, club) => sum + club.activities.length, 0);
   const totalMembers = clubs.reduce((sum, club) => sum + club.memberCount, 0);
@@ -29,6 +36,7 @@ export function Home() {
       gradient: 'from-blue-500/20 to-cyan-500/20',
       iconColor: 'text-blue-400',
       image: '🎓',
+      href: undefined as string | undefined,
     },
     {
       title: 'Total Activities',
@@ -38,6 +46,7 @@ export function Home() {
       gradient: 'from-purple-500/20 to-pink-500/20',
       iconColor: 'text-purple-400',
       image: '✨',
+      href: undefined as string | undefined,
     },
     {
       title: currentUser.role === 'student' ? 'My Registrations' : 'Total Members',
@@ -49,6 +58,7 @@ export function Home() {
       gradient: 'from-orange-500/20 to-red-500/20',
       iconColor: 'text-orange-400',
       image: currentUser.role === 'student' ? '⭐' : '🏆',
+      href: currentUser.role === 'student' ? '/registrations' : undefined,
     },
   ];
 
@@ -64,10 +74,14 @@ export function Home() {
       <div className="grid gap-6 md:grid-cols-3">
         {cardData.map((card, index) => {
           const Icon = card.icon;
-          return (
+          const cardContent = (
             <Card 
-              key={index} 
-              className="relative overflow-hidden border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 group"
+              className={cn(
+                'relative overflow-hidden border-2 transition-all duration-300 group',
+                card.href
+                  ? 'hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 cursor-pointer'
+                  : 'hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10'
+              )}
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
@@ -84,8 +98,21 @@ export function Home() {
                 <p className="text-xs text-muted-foreground">
                   {card.description}
                 </p>
+                {card.href && (
+                  <p className="text-xs text-muted-foreground mt-2 underline-offset-2 group-hover:underline">
+                    View details →
+                  </p>
+                )}
               </CardContent>
             </Card>
+          );
+
+          return card.href ? (
+            <Link key={index} to={card.href} className="block">
+              {cardContent}
+            </Link>
+          ) : (
+            <div key={index}>{cardContent}</div>
           );
         })}
       </div>
@@ -142,7 +169,7 @@ export function Home() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {new Set(clubs.map(c => c.category)).size}
+                {CLUB_CATEGORIES.length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Different categories

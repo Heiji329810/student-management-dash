@@ -7,6 +7,10 @@ import { Calendar, MapPin, Mail } from 'lucide-react';
 export function Founder() {
   const { clubs, currentUser, getRegisteredStudents } = useApp();
 
+  if (!currentUser) {
+    return null;
+  }
+
   const myClubs = clubs.filter((club) => club.founderId === currentUser.id);
 
   const formatDate = (dateString: string) => {

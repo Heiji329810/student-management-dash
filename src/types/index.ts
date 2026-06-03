@@ -14,6 +14,13 @@ export interface Activity {
   maxParticipants?: number;
   registeredStudents: string[]; // student IDs
   clubId: string;
+  durationType?: 'one-day' | 'long-term';
+  endDate?: string;
+  locationUndetermined?: boolean;
+  allStudentsOnCampus?: boolean;
+  cancelled?: boolean;
+  cancellationReason?: string;
+  cancelledAt?: string;
 }
 
 export interface Club {
@@ -23,8 +30,32 @@ export interface Club {
   category: string;
   founderId: string;
   founderName: string;
+  founderNames?: string[];
   activities: Activity[];
   memberCount: number;
+}
+
+export interface CreateClubInput {
+  founderNames: string[];
+  name: string;
+  category: string;
+  description: string;
+}
+
+export interface CreateActivityInput {
+  title: string;
+  description: string;
+  startDateTime: string;
+  durationType: 'one-day' | 'long-term';
+  endDate?: string;
+  location: string;
+  locationUndetermined: boolean;
+  estimatedParticipants?: number;
+  allStudentsOnCampus: boolean;
+}
+
+export interface CancelActivityInput {
+  reason: string;
 }
 
 export type UserRole = 'student' | 'founder';

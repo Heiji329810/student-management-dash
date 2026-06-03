@@ -1,5 +1,16 @@
 import type { Club, Student, User } from '@/types';
 
+export const CLUB_CATEGORIES = [
+  'School Official Events',
+  'Science',
+  'Computer Science',
+  'Academic/Competitions',
+  'Art and Design',
+  'Social Care/Volunteer',
+] as const;
+
+export type ClubCategory = (typeof CLUB_CATEGORIES)[number];
+
 export const mockStudents: Student[] = [
   { id: 's1', name: 'Alice Johnson', email: 'alice@university.edu', studentId: 'STU001' },
   { id: 's2', name: 'Bob Smith', email: 'bob@university.edu', studentId: 'STU002' },
@@ -19,7 +30,7 @@ export const mockClubs: Club[] = [
     id: 'c1',
     name: 'Computer Science Club',
     description: 'A club for computer science enthusiasts to collaborate on projects and share knowledge.',
-    category: 'Technology',
+    category: 'Computer Science',
     founderId: 'f1',
     founderName: 'John Founder',
     memberCount: 45,
@@ -50,7 +61,7 @@ export const mockClubs: Club[] = [
     id: 'c2',
     name: 'Photography Society',
     description: 'Capture moments and share your passion for photography with fellow students.',
-    category: 'Arts',
+    category: 'Art and Design',
     founderId: 'f2',
     founderName: 'Sarah Leader',
     memberCount: 32,
@@ -81,7 +92,7 @@ export const mockClubs: Club[] = [
     id: 'c3',
     name: 'Debate Team',
     description: 'Sharpen your argumentation skills and participate in competitive debates.',
-    category: 'Academic',
+    category: 'Academic/Competitions',
     founderId: 'f1',
     founderName: 'John Founder',
     memberCount: 28,
@@ -102,7 +113,7 @@ export const mockClubs: Club[] = [
     id: 'c4',
     name: 'Environmental Club',
     description: 'Promote sustainability and environmental awareness on campus.',
-    category: 'Social',
+    category: 'Social Care/Volunteer',
     founderId: 'f2',
     founderName: 'Sarah Leader',
     memberCount: 55,
@@ -116,6 +127,48 @@ export const mockClubs: Club[] = [
         maxParticipants: 100,
         registeredStudents: ['s1', 's2', 's3', 's4'],
         clubId: 'c4',
+      },
+    ],
+  },
+  {
+    id: 'c5',
+    name: 'Student Affairs Office',
+    description: 'Official school events including orientations, ceremonies, and campus-wide programs.',
+    category: 'School Official Events',
+    founderId: 'f1',
+    founderName: 'John Founder',
+    memberCount: 120,
+    activities: [
+      {
+        id: 'a7',
+        title: 'Spring Welcome Ceremony',
+        description: 'Official opening ceremony for the spring semester with faculty and student leaders.',
+        date: '2024-12-22',
+        location: 'Main Auditorium',
+        maxParticipants: 500,
+        registeredStudents: ['s1', 's2', 's3'],
+        clubId: 'c5',
+      },
+    ],
+  },
+  {
+    id: 'c6',
+    name: 'Science Research Society',
+    description: 'Explore biology, chemistry, and physics through experiments, talks, and lab visits.',
+    category: 'Science',
+    founderId: 'f2',
+    founderName: 'Sarah Leader',
+    memberCount: 38,
+    activities: [
+      {
+        id: 'a8',
+        title: 'Lab Open Day',
+        description: 'Tour research labs and meet scientists working on campus projects.',
+        date: '2024-12-16',
+        location: 'Science Building',
+        maxParticipants: 40,
+        registeredStudents: ['s2', 's4'],
+        clubId: 'c6',
       },
     ],
   },
