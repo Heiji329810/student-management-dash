@@ -69,6 +69,22 @@ export interface ActivityRemovalNotice {
   removedAt: string;
 }
 
+export interface ActivityJournalInput {
+  activityName: string;
+  reflection: string;
+  participants: string;
+  socialMediaLink?: string;
+  photos: string[];
+}
+
+export interface ActivityJournal extends ActivityJournalInput {
+  id: string;
+  clubId: string;
+  activityId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type UserRole = 'student' | 'founder';
 
 export interface User {

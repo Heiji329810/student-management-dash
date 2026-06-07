@@ -107,6 +107,14 @@ export function getNavDestinations(user: User, clubs: Club[]): NavDestination[] 
           href: `/manage-activities/${club.id}/cancel`,
           group: 'Manage Activities',
           keywords: [club.name, 'cancel'],
+        },
+        {
+          id: `manage-journal-${club.id}`,
+          label: `Journal Activities: ${club.name}`,
+          description: 'Write journals for past events',
+          href: `/manage-activities/${club.id}/journal`,
+          group: 'Manage Activities',
+          keywords: [club.name, 'journal', 'past', 'photos'],
         }
       );
     }

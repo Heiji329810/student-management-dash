@@ -13,6 +13,9 @@ import { ManageActivitiesClubOptions } from './pages/ManageActivitiesClubOptions
 import { ManageActivitiesAdd } from './pages/ManageActivitiesAdd';
 import { ManageActivitiesEdit } from './pages/ManageActivitiesEdit';
 import { ManageActivitiesCancel } from './pages/ManageActivitiesCancel';
+import { ManageActivitiesJournal } from './pages/ManageActivitiesJournal';
+import { ManageActivitiesJournalForm } from './pages/ManageActivitiesJournalForm';
+import { ActivityJournalView } from './pages/ActivityJournalView';
 import { RedirectAddActivity } from './pages/RedirectAddActivity';
 import { ClubDetail } from './pages/ClubDetail';
 import { Login } from './pages/Login';
@@ -34,6 +37,7 @@ function App() {
             >
               <Route index element={<Home />} />
               <Route path="clubs" element={<Clubs />} />
+              <Route path="clubs/:clubId/activities/:activityId/journal" element={<ActivityJournalView />} />
               <Route path="clubs/:clubId" element={<ClubDetail />} />
               <Route path="registrations" element={<Registrations />} />
               <Route path="create-club" element={<CreateClub />} />
@@ -43,6 +47,8 @@ function App() {
               <Route path="manage-activities/:clubId/edit/:activityId" element={<ManageActivitiesEdit />} />
               <Route path="manage-activities/:clubId/edit" element={<ManageActivitiesEdit />} />
               <Route path="manage-activities/:clubId/cancel" element={<ManageActivitiesCancel />} />
+              <Route path="manage-activities/:clubId/journal/:activityId" element={<ManageActivitiesJournalForm />} />
+              <Route path="manage-activities/:clubId/journal" element={<ManageActivitiesJournal />} />
               <Route path="add-activity" element={<Navigate to="/manage-activities" replace />} />
               <Route path="add-activity/:clubId" element={<RedirectAddActivity />} />
               <Route path="founder" element={<Founder />} />

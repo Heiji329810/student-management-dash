@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CalendarPlus, XCircle, ChevronRight, Pencil } from 'lucide-react';
-import { getActiveActivities } from '@/lib/activities';
+import { CalendarPlus, XCircle, ChevronRight, Pencil, BookOpen } from 'lucide-react';
+import { getActiveActivities, getPastActivities } from '@/lib/activities';
 import { ManageActivitiesClubGuard } from './manage-activities/useManagedClub';
 
 export function ManageActivitiesClubOptions() {
@@ -10,6 +10,7 @@ export function ManageActivitiesClubOptions() {
     <ManageActivitiesClubGuard>
       {(club) => {
         const activeCount = getActiveActivities(club.activities).length;
+        const pastCount = getPastActivities(club.activities).length;
 
         return (
           <div className="w-full pb-6">
@@ -56,6 +57,25 @@ export function ManageActivitiesClubOptions() {
                           {activeCount > 0
                             ? `Edit details for ${activeCount} active ${activeCount === 1 ? 'activity' : 'activities'}`
                             : 'No active activities to edit yet'}
+                        </CardDescription>
+                      </CardHeader>
+                    </Card>
+                  </Link>
+
+                  <Link to={`/manage-activities/${club.id}/journal`} className="block group">
+                    <Card className="border-2 gap-3 py-4 transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:-translate-y-0.5">
+                      <CardHeader className="px-5 gap-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <BookOpen className="h-6 w-6" />
+                          <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                        </div>
+                        <CardTitle className="text-lg group-hover:underline underline-offset-2">
+                          Journal My Activities
+                        </CardTitle>
+                        <CardDescription>
+                          {pastCount > 0
+                            ? `Write journals for ${pastCount} past ${pastCount === 1 ? 'event' : 'events'}`
+                            : 'Available after events end'}
                         </CardDescription>
                       </CardHeader>
                     </Card>

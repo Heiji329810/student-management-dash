@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type {
+  ActivityJournal,
+  ActivityJournalInput,
   ActivityRemovalNotice,
   CancelActivityInput,
   Club,
@@ -12,6 +14,7 @@ import type {
 import { mockClubs, mockStudents, mockUsers } from '@/data/mockData';
 import { buildActivityFields } from '@/lib/activityForm';
 import { getActiveActivities } from '@/lib/activities';
+import { journalKey, validateActivityJournal } from '@/lib/journal';
 
 function loadClubs(): Club[] {
   const saved = localStorage.getItem('clubs');
@@ -28,10 +31,16 @@ function loadRemovalNotices(): ActivityRemovalNotice[] {
   return saved ? JSON.parse(saved) : [];
 }
 
+function loadActivityJournals(): ActivityJournal[] {
+  const saved = localStorage.getItem('activityJournals');
+  return saved ? JSON.parse(saved) : [];
+}
+
 interface AppContextType {
   clubs: Club[];
   students: Student[];
   removalNotices: ActivityRemovalNotice[];
+  activityJournals: ActivityJournal[];
   currentUser: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => boolean;
@@ -48,6 +57,12 @@ interface AppContextType {
   isClubMember: (clubId: string) => boolean;
   getMyClubs: () => Club[];
   getMyRemovalNotices: () => ActivityRemovalNotice[];
+  getActivityJournal: (clubId: string, activityId: string) => ActivityJournal | undefined;
+  saveActivityJournal: (
+    clubId: string,
+    activityId: string,
+    input: ActivityJournalInput
+  ) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -55,6 +70,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [clubs, setClubs] = useState<Club[]>(loadClubs);
   const [removalNotices, setRemovalNotices] = useState<ActivityRemovalNotice[]>(loadRemovalNotices);
+  const [activityJournals, setActivityJournals] = useState<ActivityJournal[]>(loadActivityJournals);
   const [students] = useState<Student[]>(mockStudents);
   const [user, setUser] = useState<User | null>(() => {
     // 从 localStorage 恢复登录状态
@@ -78,6 +94,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('removalNotices', JSON.stringify(removalNotices));
   }, [removalNotices]);
+
+  useEffect(() => {
+    localStorage.setItem('activityJournals', JSON.stringify(activityJournals));
+  }, [activityJournals]);
 
   const login = (email: string, _password: string): boolean => {
     // 简单的登录验证（在实际应用中应该调用后端API）
@@ -329,6 +349,66 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => new Date(b.removedAt).getTime() - new Date(a.removedAt).getTime());
   };
 
+  const getActivityJournal = (clubId: string, activityId: string): ActivityJournal | undefined => {
+    return activityJournals.find(
+      (j) => j.clubId === clubId && j.activityId === activityId
+    );
+  };
+
+  const saveActivityJournal = (
+    clubId: string,
+    activityId: string,
+    input: ActivityJournalInput
+  ): boolean => {
+    if (!user || user.role !== 'student') return false;
+
+    const club = clubs.find((c) => c.id === clubId);
+    if (!club || club.founderId !== user.id) return false;
+
+    const activity = club.activities.find((a) => a.id === activityId);
+    if (!activity) return false;
+
+    const error = validateActivityJournal(input);
+    if (error) return false;
+
+    const now = new Date().toISOString();
+    const existing = getActivityJournal(clubId, activityId);
+
+    if (existing) {
+      setActivityJournals((prev) =>
+        prev.map((j) =>
+          j.id === existing.id
+            ? {
+                ...j,
+                activityName: input.activityName.trim(),
+                reflection: input.reflection.trim(),
+                participants: input.participants.trim(),
+                socialMediaLink: input.socialMediaLink?.trim() || undefined,
+                photos: input.photos,
+                updatedAt: now,
+              }
+            : j
+        )
+      );
+    } else {
+      const journal: ActivityJournal = {
+        id: `j-${journalKey(clubId, activityId)}`,
+        clubId,
+        activityId,
+        activityName: input.activityName.trim(),
+        reflection: input.reflection.trim(),
+        participants: input.participants.trim(),
+        socialMediaLink: input.socialMediaLink?.trim() || undefined,
+        photos: input.photos,
+        createdAt: now,
+        updatedAt: now,
+      };
+      setActivityJournals((prev) => [...prev, journal]);
+    }
+
+    return true;
+  };
+
   const cancelActivity = (
     clubId: string,
     activityId: string,
@@ -379,6 +459,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clubs,
         students,
         removalNotices,
+        activityJournals,
         currentUser: user,
         isAuthenticated: !!user,
         login,
@@ -395,6 +476,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isClubMember,
         getMyClubs,
         getMyRemovalNotices,
+        getActivityJournal,
+        saveActivityJournal,
       }}
     >
       {children}

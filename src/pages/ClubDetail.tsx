@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Calendar, MapPin, Users, CheckCircle2, XCircle, Sparkles } from 'lucide-react';
+import { Calendar, MapPin, Users, CheckCircle2, XCircle, Sparkles, BookOpen, ArrowRight } from 'lucide-react';
 import {
   formatActivityDate,
   formatEndDate,
@@ -32,6 +32,7 @@ interface ActivityCardProps {
   canRegister: boolean;
   onRegister: () => void;
   onUnregister: () => void;
+  hasJournal?: boolean;
 }
 
 function ActivityCard({
@@ -42,12 +43,17 @@ function ActivityCard({
   canRegister,
   onRegister,
   onUnregister,
+  hasJournal,
 }: ActivityCardProps) {
   const activityEmoji = getActivityEmoji(activity.title);
   const past = isActivityPast(activity);
 
-  return (
-    <Card className="border-2 hover:border-primary/50 transition-all duration-200 hover:shadow-lg relative overflow-hidden group/activity">
+  const cardBody = (
+    <Card
+      className={`border-2 hover:border-primary/50 transition-all duration-200 hover:shadow-lg relative overflow-hidden group/activity h-full ${
+        past ? 'cursor-pointer' : ''
+      }`}
+    >
       <div className="absolute top-0 right-0 text-6xl opacity-5 group-hover/activity:opacity-10 transition-opacity">
         {activityEmoji}
       </div>
@@ -62,6 +68,12 @@ function ActivityCard({
           </div>
           <div className="flex flex-col items-end gap-1">
             {past && <Badge variant="outline">Past</Badge>}
+            {past && hasJournal && (
+              <Badge variant="secondary" className="gap-1">
+                <BookOpen className="h-3 w-3" />
+                Journal
+              </Badge>
+            )}
             {isRegistered && (
               <Badge className="bg-green-500/90 text-white">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -171,14 +183,31 @@ function ActivityCard({
             </DialogContent>
           </Dialog>
         )}
+        {past && (
+          <div className="flex items-center gap-2 text-sm font-medium text-primary mt-2 group-hover/activity:underline">
+            <BookOpen className="h-4 w-4" />
+            View Activity Journal
+            <ArrowRight className="h-4 w-4" />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
+
+  if (past) {
+    return (
+      <Link to={`/clubs/${club.id}/activities/${activity.id}/journal`} className="block h-full">
+        {cardBody}
+      </Link>
+    );
+  }
+
+  return cardBody;
 }
 
 export function ClubDetail() {
   const { clubId } = useParams<{ clubId: string }>();
-  const { clubs, currentUser, students, registerForActivity, unregisterFromActivity } = useApp();
+  const { clubs, currentUser, students, registerForActivity, unregisterFromActivity, getActivityJournal } = useApp();
 
   if (!currentUser) return null;
 
@@ -213,7 +242,7 @@ export function ClubDetail() {
 
   const canRegister = currentUser.role === 'student';
 
-  const renderSection = (title: string, activities: Activity[], emptyMessage: string) => (
+  const renderSection = (title: string, activities: Activity[], emptyMessage: string, isPastSection = false) => (
     <div className="space-y-4">
       <h3 className="text-xl font-semibold flex items-center gap-2">
         <Sparkles className="h-5 w-5" />
@@ -236,6 +265,7 @@ export function ClubDetail() {
               canRegister={canRegister}
               onRegister={() => registerForActivity(activity.id, club.id)}
               onUnregister={() => unregisterFromActivity(activity.id, club.id)}
+              hasJournal={isPastSection ? !!getActivityJournal(club.id, activity.id) : undefined}
             />
           ))}
         </div>
@@ -268,7 +298,7 @@ export function ClubDetail() {
       </div>
 
       {renderSection('Upcoming Events', upcoming, 'No upcoming events for this club.')}
-      {renderSection('Past Events', past, 'No past events for this club.')}
+      {renderSection('Past Events', past, 'No past events for this club.', true)}
     </div>
   );
 }
