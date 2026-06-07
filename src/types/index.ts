@@ -32,7 +32,7 @@ export interface Club {
   founderName: string;
   founderNames?: string[];
   activities: Activity[];
-  memberCount: number;
+  members: string[];
 }
 
 export interface CreateClubInput {
@@ -56,6 +56,17 @@ export interface CreateActivityInput {
 
 export interface CancelActivityInput {
   reason: string;
+}
+
+export interface ActivityRemovalNotice {
+  id: string;
+  studentId: string;
+  activityTitle: string;
+  clubName: string;
+  clubId: string;
+  activityDate: string;
+  message: string;
+  removedAt: string;
 }
 
 export type UserRole = 'student' | 'founder';

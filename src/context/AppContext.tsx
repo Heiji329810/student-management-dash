@@ -1,11 +1,37 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { CancelActivityInput, Club, CreateActivityInput, CreateClubInput, Student, User } from '@/types';
+import type {
+  ActivityRemovalNotice,
+  CancelActivityInput,
+  Club,
+  CreateActivityInput,
+  CreateClubInput,
+  Student,
+  User,
+} from '@/types';
 import { mockClubs, mockStudents, mockUsers } from '@/data/mockData';
+import { buildActivityFields } from '@/lib/activityForm';
+import { getActiveActivities } from '@/lib/activities';
+
+function loadClubs(): Club[] {
+  const saved = localStorage.getItem('clubs');
+  const clubs: Club[] = saved ? JSON.parse(saved) : mockClubs;
+  return clubs.map((club) => ({
+    ...club,
+    activities: getActiveActivities(club.activities),
+    members: club.members ?? [],
+  }));
+}
+
+function loadRemovalNotices(): ActivityRemovalNotice[] {
+  const saved = localStorage.getItem('removalNotices');
+  return saved ? JSON.parse(saved) : [];
+}
 
 interface AppContextType {
   clubs: Club[];
   students: Student[];
+  removalNotices: ActivityRemovalNotice[];
   currentUser: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => boolean;
@@ -15,17 +41,20 @@ interface AppContextType {
   getRegisteredStudents: (activityId: string, clubId: string) => Student[];
   createClub: (input: CreateClubInput) => boolean;
   createActivity: (clubId: string, input: CreateActivityInput) => boolean;
+  updateActivity: (clubId: string, activityId: string, input: CreateActivityInput) => boolean;
   cancelActivity: (clubId: string, activityId: string, input: CancelActivityInput) => boolean;
+  joinClub: (clubId: string) => void;
+  leaveClub: (clubId: string) => void;
+  isClubMember: (clubId: string) => boolean;
   getMyClubs: () => Club[];
+  getMyRemovalNotices: () => ActivityRemovalNotice[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [clubs, setClubs] = useState<Club[]>(() => {
-    const saved = localStorage.getItem('clubs');
-    return saved ? JSON.parse(saved) : mockClubs;
-  });
+  const [clubs, setClubs] = useState<Club[]>(loadClubs);
+  const [removalNotices, setRemovalNotices] = useState<ActivityRemovalNotice[]>(loadRemovalNotices);
   const [students] = useState<Student[]>(mockStudents);
   const [user, setUser] = useState<User | null>(() => {
     // 从 localStorage 恢复登录状态
@@ -45,6 +74,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('clubs', JSON.stringify(clubs));
   }, [clubs]);
+
+  useEffect(() => {
+    localStorage.setItem('removalNotices', JSON.stringify(removalNotices));
+  }, [removalNotices]);
 
   const login = (email: string, _password: string): boolean => {
     // 简单的登录验证（在实际应用中应该调用后端API）
@@ -144,6 +177,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!input.name.trim() || !input.category.trim() || !input.description.trim()) return false;
     if (input.category === 'School Official Events') return false;
 
+    const student = students.find((s) => s.studentId === user.studentId);
+
     const newClub: Club = {
       id: `c-${Date.now()}`,
       name: input.name.trim(),
@@ -153,7 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       founderName: founderNames.join(', '),
       founderNames,
       activities: [],
-      memberCount: founderNames.length,
+      members: student ? [student.id] : [],
     };
 
     setClubs((prev) => [...prev, newClub]);
@@ -163,6 +198,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const getMyClubs = (): Club[] => {
     if (!user || user.role !== 'student') return [];
     return clubs.filter((club) => club.founderId === user.id);
+  };
+
+  const isClubMember = (clubId: string): boolean => {
+    if (!user || user.role !== 'student' || !user.studentId) return false;
+    const student = students.find((s) => s.studentId === user.studentId);
+    const club = clubs.find((c) => c.id === clubId);
+    if (!student || !club) return false;
+    return club.members.includes(student.id);
+  };
+
+  const joinClub = (clubId: string) => {
+    if (!user || user.role !== 'student' || !user.studentId) return;
+    const student = students.find((s) => s.studentId === user.studentId);
+    if (!student) return;
+
+    setClubs((prev) =>
+      prev.map((club) => {
+        if (club.id !== clubId || club.members.includes(student.id)) return club;
+        return { ...club, members: [...club.members, student.id] };
+      })
+    );
+  };
+
+  const leaveClub = (clubId: string) => {
+    if (!user || user.role !== 'student' || !user.studentId) return;
+    const student = students.find((s) => s.studentId === user.studentId);
+    if (!student) return;
+
+    setClubs((prev) =>
+      prev.map((club) => {
+        if (club.id !== clubId) return club;
+        return { ...club, members: club.members.filter((id) => id !== student.id) };
+      })
+    );
   };
 
   const createActivity = (clubId: string, input: CreateActivityInput): boolean => {
@@ -186,17 +255,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (Number.isNaN(end.getTime()) || end < start) return false;
     }
 
+    const fields = buildActivityFields(input);
     const newActivity = {
       id: `a-${Date.now()}`,
-      title: input.title.trim(),
-      description: input.description.trim(),
-      date: input.startDateTime,
-      location: input.locationUndetermined ? 'Undetermined' : input.location.trim(),
-      locationUndetermined: input.locationUndetermined,
-      durationType: input.durationType,
-      endDate: input.durationType === 'long-term' ? input.endDate : undefined,
-      maxParticipants: input.allStudentsOnCampus ? undefined : input.estimatedParticipants,
-      allStudentsOnCampus: input.allStudentsOnCampus,
+      ...fields,
       registeredStudents: [] as string[],
       clubId,
     };
@@ -207,6 +269,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
       )
     );
     return true;
+  };
+
+  const updateActivity = (
+    clubId: string,
+    activityId: string,
+    input: CreateActivityInput
+  ): boolean => {
+    if (!user || user.role !== 'student') return false;
+
+    const club = clubs.find((c) => c.id === clubId);
+    if (!club || club.founderId !== user.id) return false;
+
+    const activity = club.activities.find((a) => a.id === activityId);
+    if (!activity || activity.cancelled) return false;
+
+    if (!input.title.trim() || !input.description.trim() || !input.startDateTime) return false;
+    if (input.durationType === 'long-term' && !input.endDate) return false;
+    if (!input.locationUndetermined && !input.location.trim()) return false;
+    if (!input.allStudentsOnCampus && (!input.estimatedParticipants || input.estimatedParticipants < 1)) {
+      return false;
+    }
+
+    const start = new Date(input.startDateTime);
+    if (Number.isNaN(start.getTime())) return false;
+
+    if (input.durationType === 'long-term' && input.endDate) {
+      const end = new Date(input.endDate);
+      if (Number.isNaN(end.getTime()) || end < start) return false;
+    }
+
+    const fields = buildActivityFields(input);
+
+    setClubs((prev) =>
+      prev.map((c) => {
+        if (c.id !== clubId) return c;
+        return {
+          ...c,
+          activities: c.activities.map((a) =>
+            a.id === activityId
+              ? {
+                  ...a,
+                  ...fields,
+                }
+              : a
+          ),
+        };
+      })
+    );
+    return true;
+  };
+
+  const getMyRemovalNotices = (): ActivityRemovalNotice[] => {
+    if (!user || user.role !== 'student' || !user.studentId) return [];
+    const student = students.find((s) => s.studentId === user.studentId);
+    if (!student) return [];
+    return removalNotices
+      .filter((notice) => notice.studentId === student.id)
+      .sort((a, b) => new Date(b.removedAt).getTime() - new Date(a.removedAt).getTime());
   };
 
   const cancelActivity = (
@@ -225,21 +345,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const activity = club.activities.find((a) => a.id === activityId);
     if (!activity || activity.cancelled) return false;
 
+    const removedAt = new Date().toISOString();
+    const notices: ActivityRemovalNotice[] = activity.registeredStudents.map((studentId) => ({
+      id: `rn-${Date.now()}-${studentId}`,
+      studentId,
+      activityTitle: activity.title,
+      clubName: club.name,
+      clubId,
+      activityDate: activity.date,
+      message: reason,
+      removedAt,
+    }));
+
+    if (notices.length > 0) {
+      setRemovalNotices((prev) => [...prev, ...notices]);
+    }
+
     setClubs((prev) =>
       prev.map((c) => {
         if (c.id !== clubId) return c;
         return {
           ...c,
-          activities: c.activities.map((a) =>
-            a.id === activityId
-              ? {
-                  ...a,
-                  cancelled: true,
-                  cancellationReason: reason,
-                  cancelledAt: new Date().toISOString(),
-                }
-              : a
-          ),
+          activities: c.activities.filter((a) => a.id !== activityId),
         };
       })
     );
@@ -251,6 +378,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         clubs,
         students,
+        removalNotices,
         currentUser: user,
         isAuthenticated: !!user,
         login,
@@ -260,8 +388,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getRegisteredStudents,
         createClub,
         createActivity,
+        updateActivity,
         cancelActivity,
+        joinClub,
+        leaveClub,
+        isClubMember,
         getMyClubs,
+        getMyRemovalNotices,
       }}
     >
       {children}

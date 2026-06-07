@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CalendarCog, ChevronRight, Users } from 'lucide-react';
 import { getActiveActivities } from '@/lib/activities';
+import { getClubMemberCount } from '@/lib/clubs';
 
 export function ManageActivities() {
   const { currentUser, getMyClubs } = useApp();
@@ -31,7 +32,7 @@ export function ManageActivities() {
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Manage Activities</h2>
         <p className="text-muted-foreground mt-2">
-          Select a club, then choose to add or cancel activities
+          Select a club, then choose to add, edit, or cancel activities
         </p>
       </div>
 
@@ -52,7 +53,6 @@ export function ManageActivities() {
         <div className="grid gap-4 md:grid-cols-2">
           {myClubs.map((club) => {
             const activeCount = getActiveActivities(club.activities).length;
-            const cancelledCount = club.activities.filter((a) => a.cancelled).length;
 
             return (
               <Link key={club.id} to={`/manage-activities/${club.id}`} className="block group">
@@ -75,14 +75,11 @@ export function ManageActivities() {
                       <Badge variant="outline">{club.category}</Badge>
                       <Badge variant="secondary" className="gap-1">
                         <Users className="h-3 w-3" />
-                        {club.memberCount} members
+                        {getClubMemberCount(club)} members
                       </Badge>
                       <Badge variant="secondary">
                         {activeCount} active {activeCount === 1 ? 'activity' : 'activities'}
                       </Badge>
-                      {cancelledCount > 0 && (
-                        <Badge variant="outline">{cancelledCount} cancelled</Badge>
-                      )}
                     </div>
                   </CardContent>
                 </Card>

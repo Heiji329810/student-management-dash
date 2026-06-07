@@ -1,0 +1,169 @@
+import type { Club, User } from '@/types';
+
+export interface NavDestination {
+  id: string;
+  label: string;
+  description?: string;
+  href: string;
+  group: string;
+  keywords?: string[];
+}
+
+const MAIN_PAGES: NavDestination[] = [
+  {
+    id: 'home',
+    label: 'Home',
+    description: 'Dashboard overview',
+    href: '/',
+    group: 'Pages',
+    keywords: ['dashboard', 'overview'],
+  },
+  {
+    id: 'clubs',
+    label: 'Clubs & Organizations',
+    description: 'Browse all clubs and events',
+    href: '/clubs',
+    group: 'Pages',
+    keywords: ['organizations', 'events', 'activities'],
+  },
+];
+
+const STUDENT_PAGES: NavDestination[] = [
+  {
+    id: 'registrations',
+    label: 'My Registrations',
+    description: 'View your registered activities',
+    href: '/registrations',
+    group: 'Pages',
+    keywords: ['registered', 'sign up', 'events'],
+  },
+  {
+    id: 'create-club',
+    label: 'Create a Club',
+    description: 'Start a new student organization',
+    href: '/create-club',
+    group: 'Pages',
+    keywords: ['new club', 'organization', 'found'],
+  },
+  {
+    id: 'manage-activities',
+    label: 'Manage Activities',
+    description: 'Add, edit, or cancel club activities',
+    href: '/manage-activities',
+    group: 'Pages',
+    keywords: ['add activity', 'cancel', 'edit', 'events'],
+  },
+];
+
+const FOUNDER_PAGES: NavDestination[] = [
+  {
+    id: 'founder',
+    label: 'My Organizations',
+    description: 'Manage your founded organizations',
+    href: '/founder',
+    group: 'Pages',
+    keywords: ['organizations', 'clubs'],
+  },
+];
+
+export function getNavDestinations(user: User, clubs: Club[]): NavDestination[] {
+  const destinations: NavDestination[] = [...MAIN_PAGES];
+  const myClubs =
+    user.role === 'student' ? clubs.filter((club) => club.founderId === user.id) : [];
+
+  if (user.role === 'student') {
+    destinations.push(...STUDENT_PAGES);
+
+    for (const club of myClubs) {
+      destinations.push(
+        {
+          id: `manage-${club.id}`,
+          label: `Manage: ${club.name}`,
+          description: 'Add, edit, or cancel activities',
+          href: `/manage-activities/${club.id}`,
+          group: 'Manage Activities',
+          keywords: [club.name, club.category, 'manage', 'add', 'edit', 'cancel'],
+        },
+        {
+          id: `manage-add-${club.id}`,
+          label: `Add Activity: ${club.name}`,
+          description: 'Create a new event',
+          href: `/manage-activities/${club.id}/add`,
+          group: 'Manage Activities',
+          keywords: [club.name, 'add', 'create', 'new event'],
+        },
+        {
+          id: `manage-edit-${club.id}`,
+          label: `Edit Activities: ${club.name}`,
+          description: 'Change activity information',
+          href: `/manage-activities/${club.id}/edit`,
+          group: 'Manage Activities',
+          keywords: [club.name, 'edit', 'change', 'update'],
+        },
+        {
+          id: `manage-cancel-${club.id}`,
+          label: `Cancel Activities: ${club.name}`,
+          description: 'Cancel scheduled activities',
+          href: `/manage-activities/${club.id}/cancel`,
+          group: 'Manage Activities',
+          keywords: [club.name, 'cancel'],
+        }
+      );
+    }
+  }
+
+  if (user.role === 'founder') {
+    destinations.push(...FOUNDER_PAGES);
+  }
+
+  for (const club of clubs) {
+    destinations.push({
+      id: `club-${club.id}`,
+      label: club.name,
+      description: `${club.category} · View club events`,
+      href: `/clubs/${club.id}`,
+      group: 'Clubs',
+      keywords: [club.category, club.description, 'club', 'organization', 'events'],
+    });
+  }
+
+  return destinations;
+}
+
+export function filterNavDestinations(
+  destinations: NavDestination[],
+  query: string
+): NavDestination[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return destinations;
+
+  return destinations.filter((item) => {
+    const haystack = [
+      item.label,
+      item.description ?? '',
+      item.group,
+      ...(item.keywords ?? []),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(trimmed);
+  });
+}
+
+export function groupNavDestinations(
+  destinations: NavDestination[]
+): { group: string; items: NavDestination[] }[] {
+  const groups = new Map<string, NavDestination[]>();
+
+  for (const item of destinations) {
+    const existing = groups.get(item.group) ?? [];
+    existing.push(item);
+    groups.set(item.group, existing);
+  }
+
+  const order = ['Pages', 'Clubs', 'Manage Activities'];
+  return order
+    .filter((group) => groups.has(group))
+    .map((group) => ({ group, items: groups.get(group)! }));
+}

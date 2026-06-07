@@ -20,6 +20,8 @@ import {
   isActivityPast,
   splitActivitiesByTiming,
 } from '@/lib/activities';
+import { getClubMemberCount } from '@/lib/clubs';
+import { ClubJoinButton } from '@/components/ClubJoinButton';
 import type { Activity, Club } from '@/types';
 
 interface ActivityCardProps {
@@ -247,11 +249,22 @@ export function ClubDetail() {
         <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2">
           <Link to="/clubs">← Back to Clubs</Link>
         </Button>
-        <h2 className="text-3xl font-bold tracking-tight">{club.name}</h2>
-        <p className="text-muted-foreground mt-2">
-          Founded by {club.founderName} · {club.category}
-        </p>
-        <p className="text-muted-foreground mt-3 max-w-2xl">{club.description}</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">{club.name}</h2>
+            <p className="text-muted-foreground mt-2">
+              Founded by {club.founderName} · {club.category}
+            </p>
+            <p className="text-muted-foreground mt-3 max-w-2xl">{club.description}</p>
+          </div>
+          <div className="flex flex-col gap-3 items-stretch sm:items-end shrink-0 w-full sm:w-auto">
+            <Badge variant="outline" className="text-sm w-fit self-start sm:self-end">
+              <Users className="h-3 w-3 mr-1" />
+              {getClubMemberCount(club)} members
+            </Badge>
+            <ClubJoinButton clubId={club.id} className="w-full sm:min-w-[13rem]" />
+          </div>
+        </div>
       </div>
 
       {renderSection('Upcoming Events', upcoming, 'No upcoming events for this club.')}

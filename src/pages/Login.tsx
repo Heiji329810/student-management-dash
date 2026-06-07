@@ -117,9 +117,12 @@ export function Login() {
                 测试账户：
               </p>
               <div className="space-y-2 text-xs text-muted-foreground">
-                <div className="flex justify-between">
+                <div>
                   <span>学生账户：</span>
-                  <span className="font-mono">alice@university.edu</span>
+                  <div className="mt-1 space-y-0.5 font-mono text-right">
+                    <div>alice@university.edu</div>
+                    <div>emma@university.edu</div>
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span>创始人账户：</span>

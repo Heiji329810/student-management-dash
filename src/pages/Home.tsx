@@ -4,6 +4,7 @@ import { CLUB_CATEGORIES } from '@/data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, GraduationCap, Sparkles, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getClubMemberCount } from '@/lib/clubs';
 
 export function Home() {
   const { clubs, currentUser, students } = useApp();
@@ -13,7 +14,11 @@ export function Home() {
   }
   
   const totalActivities = clubs.reduce((sum, club) => sum + club.activities.length, 0);
-  const totalMembers = clubs.reduce((sum, club) => sum + club.memberCount, 0);
+  const totalMembers = clubs.reduce((sum, club) => sum + getClubMemberCount(club), 0);
+  const largestClub = clubs.length
+    ? clubs.reduce((max, club) => (getClubMemberCount(club) > getClubMemberCount(max) ? club : max))
+    : null;
+  const avgMembers = clubs.length ? Math.round(totalMembers / clubs.length) : 0;
   
   const userRegistrations = (() => {
     if (currentUser.role !== 'student' || !currentUser.studentId) return 0;
@@ -36,7 +41,7 @@ export function Home() {
       gradient: 'from-blue-500/20 to-cyan-500/20',
       iconColor: 'text-blue-400',
       image: '🎓',
-      href: undefined as string | undefined,
+      href: '/clubs',
     },
     {
       title: 'Total Activities',
@@ -46,7 +51,7 @@ export function Home() {
       gradient: 'from-purple-500/20 to-pink-500/20',
       iconColor: 'text-purple-400',
       image: '✨',
-      href: undefined as string | undefined,
+      href: '/clubs',
     },
     {
       title: currentUser.role === 'student' ? 'My Registrations' : 'Total Members',
@@ -148,15 +153,9 @@ export function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {clubs.reduce((max, club) => 
-                  club.memberCount > max.memberCount ? club : max
-                , clubs[0])?.name || 'N/A'}
-              </div>
+              <div className="text-2xl font-bold">{largestClub?.name || 'N/A'}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {clubs.reduce((max, club) => 
-                  club.memberCount > max.memberCount ? club : max
-                , clubs[0])?.memberCount || 0} members
+                {largestClub ? getClubMemberCount(largestClub) : 0} members
               </p>
             </CardContent>
           </Card>
@@ -184,9 +183,7 @@ export function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {Math.round(clubs.reduce((sum, club) => sum + club.memberCount, 0) / clubs.length) || 0}
-              </div>
+              <div className="text-2xl font-bold">{avgMembers}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Per organization
               </p>

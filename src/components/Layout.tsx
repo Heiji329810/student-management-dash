@@ -1,6 +1,7 @@
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from './ThemeProvider';
+import { NavSearch } from './NavSearch';
 import { Users, Home, User, Moon, Sun, LogOut, ClipboardList, PlusCircle, CalendarCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -52,6 +53,7 @@ export function Layout() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                <NavSearch />
                 <Button
                   variant="outline"
                   size="sm"

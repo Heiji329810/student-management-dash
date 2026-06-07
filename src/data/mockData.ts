@@ -16,11 +16,13 @@ export const mockStudents: Student[] = [
   { id: 's2', name: 'Bob Smith', email: 'bob@university.edu', studentId: 'STU002' },
   { id: 's3', name: 'Charlie Brown', email: 'charlie@university.edu', studentId: 'STU003' },
   { id: 's4', name: 'Diana Prince', email: 'diana@university.edu', studentId: 'STU004' },
+  { id: 's5', name: 'Emma Wilson', email: 'emma@university.edu', studentId: 'STU005' },
 ];
 
 export const mockUsers: User[] = [
   { id: 'u1', name: 'Alice Johnson', email: 'alice@university.edu', role: 'student', studentId: 'STU001' },
   { id: 'u2', name: 'Bob Smith', email: 'bob@university.edu', role: 'student', studentId: 'STU002' },
+  { id: 'u3', name: 'Emma Wilson', email: 'emma@university.edu', role: 'student', studentId: 'STU005' },
   { id: 'f1', name: 'John Founder', email: 'john@university.edu', role: 'founder' },
   { id: 'f2', name: 'Sarah Leader', email: 'sarah@university.edu', role: 'founder' },
 ];
@@ -33,7 +35,7 @@ export const mockClubs: Club[] = [
     category: 'Computer Science',
     founderId: 'f1',
     founderName: 'John Founder',
-    memberCount: 45,
+    members: [],
     activities: [
       {
         id: 'a1',
@@ -64,7 +66,7 @@ export const mockClubs: Club[] = [
     category: 'Art and Design',
     founderId: 'f2',
     founderName: 'Sarah Leader',
-    memberCount: 32,
+    members: [],
     activities: [
       {
         id: 'a3',
@@ -95,7 +97,7 @@ export const mockClubs: Club[] = [
     category: 'Academic/Competitions',
     founderId: 'f1',
     founderName: 'John Founder',
-    memberCount: 28,
+    members: [],
     activities: [
       {
         id: 'a5',
@@ -116,7 +118,7 @@ export const mockClubs: Club[] = [
     category: 'Social Care/Volunteer',
     founderId: 'f2',
     founderName: 'Sarah Leader',
-    memberCount: 55,
+    members: [],
     activities: [
       {
         id: 'a6',
@@ -137,7 +139,7 @@ export const mockClubs: Club[] = [
     category: 'School Official Events',
     founderId: 'f1',
     founderName: 'John Founder',
-    memberCount: 120,
+    members: [],
     activities: [
       {
         id: 'a7',
@@ -158,7 +160,7 @@ export const mockClubs: Club[] = [
     category: 'Science',
     founderId: 'f2',
     founderName: 'Sarah Leader',
-    memberCount: 38,
+    members: [],
     activities: [
       {
         id: 'a8',

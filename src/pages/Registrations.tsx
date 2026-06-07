@@ -12,15 +12,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Calendar, MapPin, Users, XCircle, Sparkles, Clock } from 'lucide-react';
+import { Calendar, MapPin, Users, XCircle, Sparkles, Clock, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   formatActivityDate,
   getActivityEmoji,
-  isActivityCancelled,
   isActivityPast,
 } from '@/lib/activities';
-import type { Activity, Club } from '@/types';
+import type { Activity, ActivityRemovalNotice, Club } from '@/types';
 
 interface RegistrationEntry {
   activity: Activity;
@@ -54,7 +53,6 @@ function RegistrationCard({
   const emoji = getActivityEmoji(activity.title);
   const timing = getDaysUntil(activity.date);
   const past = isActivityPast(activity);
-  const cancelled = isActivityCancelled(activity);
 
   return (
     <div
@@ -73,8 +71,7 @@ function RegistrationCard({
         className={cn(
           'border-2 relative overflow-hidden group transition-all duration-300',
           'hover:border-primary/50 hover:shadow-xl hover:-translate-y-0.5',
-          past && 'opacity-75',
-          cancelled && 'opacity-60 border-dashed'
+          past && 'opacity-75'
         )}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-foreground/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -96,15 +93,14 @@ function RegistrationCard({
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              {cancelled && <Badge variant="destructive">Cancelled</Badge>}
               <Badge
                 variant="outline"
                 className={cn(
                   'transition-colors duration-300',
-                  timing.urgent && !past && !cancelled && 'border-foreground'
+                  timing.urgent && !past && 'border-foreground'
                 )}
               >
-                {cancelled ? 'Cancelled by organizer' : past ? 'Past' : timing.label}
+                {past ? 'Past' : timing.label}
               </Badge>
               <Badge variant="secondary">Registered</Badge>
             </div>
@@ -151,15 +147,8 @@ function RegistrationCard({
             </div>
           )}
 
-        {cancelled && activity.cancellationReason && (
-          <div className="p-3 rounded-md border border-border bg-muted/50 text-sm">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Cancellation reason</p>
-            {activity.cancellationReason}
-          </div>
-        )}
-
           <div className="flex gap-2 pt-2">
-            {!past && !cancelled && (
+            {!past && (
               <Dialog>
                 <DialogTrigger asChild>
                   <Button
@@ -223,8 +212,58 @@ function RegistrationCard({
   );
 }
 
+function RemovalNoticeCard({
+  notice,
+  index,
+}: {
+  notice: ActivityRemovalNotice;
+  index: number;
+}) {
+  const emoji = getActivityEmoji(notice.activityTitle);
+
+  return (
+    <div
+      className="animate-in fade-in slide-in-from-bottom-6 duration-500 fill-mode-both"
+      style={{ animationDelay: `${150 + index * 100}ms` }}
+    >
+      <Card className="border-2 border-dashed relative overflow-hidden">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <span className="text-3xl">{emoji}</span>
+              <div className="flex-1">
+                <CardTitle className="text-xl">{notice.activityTitle}</CardTitle>
+                <CardDescription className="mt-1">
+                  {notice.clubName} · Activity cancelled by organizer
+                </CardDescription>
+              </div>
+            </div>
+            <Badge variant="destructive">Cancelled</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            Was scheduled for {formatActivityDate(notice.activityDate)}
+          </div>
+          <div className="p-4 rounded-md border border-border bg-muted/50 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Mail className="h-4 w-4" />
+              Message from organizer
+            </div>
+            <p className="text-sm text-muted-foreground">{notice.message}</p>
+          </div>
+          <Button variant="ghost" asChild>
+            <Link to={`/clubs/${notice.clubId}`}>View Club</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export function Registrations() {
-  const { clubs, currentUser, students, unregisterFromActivity } = useApp();
+  const { clubs, currentUser, students, unregisterFromActivity, getMyRemovalNotices } = useApp();
 
   if (!currentUser) {
     return null;
@@ -246,20 +285,24 @@ export function Registrations() {
   const allRegistrations: RegistrationEntry[] = student
     ? clubs.flatMap((club) =>
         club.activities
-          .filter((activity) => activity.registeredStudents.includes(student.id))
+          .filter(
+            (activity) =>
+              !activity.cancelled && activity.registeredStudents.includes(student.id)
+          )
           .map((activity) => ({ activity, club }))
       )
     : [];
 
   const past = allRegistrations
-    .filter(({ activity }) => isActivityPast(activity) || isActivityCancelled(activity))
+    .filter(({ activity }) => isActivityPast(activity))
     .sort((a, b) => new Date(b.activity.date).getTime() - new Date(a.activity.date).getTime());
 
   const upcoming = allRegistrations
-    .filter(({ activity }) => !isActivityPast(activity) && !isActivityCancelled(activity))
+    .filter(({ activity }) => !isActivityPast(activity))
     .sort((a, b) => new Date(a.activity.date).getTime() - new Date(b.activity.date).getTime());
 
   const registrations = [...upcoming, ...past];
+  const removalNotices = getMyRemovalNotices();
 
   const handleUnregister = (activityId: string, clubId: string) => {
     unregisterFromActivity(activityId, clubId);
@@ -304,7 +347,7 @@ export function Registrations() {
         </p>
       </div>
 
-      {registrations.length === 0 ? (
+      {registrations.length === 0 && removalNotices.length === 0 ? (
         <Card className="border-2 animate-in fade-in zoom-in-95 duration-500">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <div className="relative mb-4">
@@ -321,6 +364,25 @@ export function Registrations() {
           </CardContent>
         </Card>
       ) : (
+        <>
+          {removalNotices.length > 0 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75 fill-mode-both">
+              <h3 className="text-xl font-semibold flex items-center gap-2">
+                Cancelled Activities
+                <Badge variant="secondary">{removalNotices.length}</Badge>
+              </h3>
+              <p className="text-sm text-muted-foreground -mt-2">
+                These activities were cancelled by the organizer. Their message to you is shown below.
+              </p>
+              <div className="space-y-4">
+                {removalNotices.map((notice, i) => (
+                  <RemovalNoticeCard key={notice.id} notice={notice} index={i} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {registrations.length > 0 && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100 fill-mode-both">
             <Card className="border-2 relative overflow-hidden group hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
@@ -368,6 +430,8 @@ export function Registrations() {
               upcoming.length
             )}
           </div>
+        </>
+          )}
         </>
       )}
     </div>
