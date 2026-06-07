@@ -33,7 +33,12 @@ function loadRemovalNotices(): ActivityRemovalNotice[] {
 
 function loadActivityJournals(): ActivityJournal[] {
   const saved = localStorage.getItem('activityJournals');
-  return saved ? JSON.parse(saved) : [];
+  if (!saved) return [];
+  const raw = JSON.parse(saved) as ActivityJournal[];
+  return raw.map((j) => ({
+    ...j,
+    participantIds: j.participantIds ?? [],
+  }));
 }
 
 interface AppContextType {
@@ -368,7 +373,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const activity = club.activities.find((a) => a.id === activityId);
     if (!activity) return false;
 
-    const error = validateActivityJournal(input);
+    const error = validateActivityJournal(input, activity.registeredStudents.length);
     if (error) return false;
 
     const now = new Date().toISOString();
@@ -382,7 +387,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 ...j,
                 activityName: input.activityName.trim(),
                 reflection: input.reflection.trim(),
-                participants: input.participants.trim(),
+                participantIds: input.participantIds,
                 socialMediaLink: input.socialMediaLink?.trim() || undefined,
                 photos: input.photos,
                 updatedAt: now,
@@ -397,7 +402,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         activityId,
         activityName: input.activityName.trim(),
         reflection: input.reflection.trim(),
-        participants: input.participants.trim(),
+        participantIds: input.participantIds,
         socialMediaLink: input.socialMediaLink?.trim() || undefined,
         photos: input.photos,
         createdAt: now,

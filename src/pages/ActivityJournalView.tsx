@@ -8,7 +8,7 @@ import { formatActivityDate, getActivityEmoji } from '@/lib/activities';
 
 export function ActivityJournalView() {
   const { clubId, activityId } = useParams<{ clubId: string; activityId: string }>();
-  const { clubs, currentUser, getActivityJournal } = useApp();
+  const { clubs, currentUser, getActivityJournal, students } = useApp();
 
   if (!clubId || !activityId) return null;
 
@@ -17,6 +17,18 @@ export function ActivityJournalView() {
   const journal = getActivityJournal(clubId, activityId);
   const isOwner =
     currentUser?.role === 'student' && club && club.founderId === currentUser.id;
+
+  const participantNames =
+    journal?.participantIds?.length
+      ? journal.participantIds
+          .map((id) => students.find((s) => s.id === id)?.name)
+          .filter(Boolean)
+      : journal?.participants
+        ? journal.participants
+            .split(/\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+        : [];
 
   if (!club || !activity) {
     return (
@@ -122,9 +134,15 @@ export function ActivityJournalView() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {journal.participants}
-              </p>
+              {participantNames.length > 0 ? (
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  {participantNames.map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No participants recorded.</p>
+              )}
             </CardContent>
           </Card>
 

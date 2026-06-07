@@ -12,10 +12,16 @@ import { ImagePlus, X } from 'lucide-react';
 
 export type JournalFormValues = ActivityJournalInput;
 
+interface RegisteredStudentOption {
+  id: string;
+  name: string;
+}
+
 interface ActivityJournalFormProps {
   values: JournalFormValues;
   onChange: (values: JournalFormValues) => void;
   onSubmit: (e: React.FormEvent) => void;
+  registeredStudents: RegisteredStudentOption[];
   error?: string;
   success?: string;
   submitLabel?: string;
@@ -25,6 +31,7 @@ export function ActivityJournalForm({
   values,
   onChange,
   onSubmit,
+  registeredStudents,
   error,
   success,
   submitLabel = 'Save Journal',
@@ -66,6 +73,13 @@ export function ActivityJournalForm({
       'photos',
       values.photos.filter((_, i) => i !== index)
     );
+  };
+
+  const toggleParticipant = (studentId: string) => {
+    const participantIds = values.participantIds.includes(studentId)
+      ? values.participantIds.filter((id) => id !== studentId)
+      : [...values.participantIds, studentId];
+    set('participantIds', participantIds);
   };
 
   return (
@@ -115,18 +129,36 @@ export function ActivityJournalForm({
         />
       </div>
 
-      <div className="space-y-2">
-        <label htmlFor="journal-participants" className="text-sm font-medium">
-          Members Who Participated
-        </label>
-        <textarea
-          id="journal-participants"
-          value={values.participants}
-          onChange={(e) => set('participants', e.target.value)}
-          placeholder="List the names of members who took part in this activity..."
-          rows={3}
-          className="border-border w-full min-w-0 rounded-md border bg-background px-3 py-2 text-base text-foreground shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm resize-y"
-        />
+      <div className="space-y-3">
+        <label className="text-sm font-medium">Members Who Participated</label>
+        {registeredStudents.length === 0 ? (
+          <p className="text-sm text-muted-foreground rounded-md border border-dashed border-border p-4">
+            No students registered for this event. Participants can only be selected from the
+            registration list.
+          </p>
+        ) : (
+          <div className="rounded-md border border-border divide-y divide-border">
+            {registeredStudents.map((student) => (
+              <label
+                key={student.id}
+                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={values.participantIds.includes(student.id)}
+                  onChange={() => toggleParticipant(student.id)}
+                  className="accent-foreground"
+                />
+                <span className="text-sm">{student.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {registeredStudents.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Select the students who actually attended from those who registered.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">

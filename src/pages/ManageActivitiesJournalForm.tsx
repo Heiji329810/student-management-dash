@@ -13,7 +13,7 @@ function emptyJournalValues(activityTitle: string): JournalFormValues {
   return {
     activityName: activityTitle,
     reflection: '',
-    participants: '',
+    participantIds: [],
     socialMediaLink: '',
     photos: [],
   };
@@ -21,10 +21,12 @@ function emptyJournalValues(activityTitle: string): JournalFormValues {
 
 function JournalFormPage({ club, activity }: { club: Club; activity: Activity }) {
   const navigate = useNavigate();
-  const { getActivityJournal, saveActivityJournal } = useApp();
+  const { getActivityJournal, saveActivityJournal, getRegisteredStudents } = useApp();
   const [values, setValues] = useState<JournalFormValues>(emptyJournalValues(activity.title));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const registeredStudents = getRegisteredStudents(activity.id, club.id);
 
   useEffect(() => {
     const existing = getActivityJournal(club.id, activity.id);
@@ -32,7 +34,7 @@ function JournalFormPage({ club, activity }: { club: Club; activity: Activity })
       setValues({
         activityName: existing.activityName,
         reflection: existing.reflection,
-        participants: existing.participants,
+        participantIds: existing.participantIds ?? [],
         socialMediaLink: existing.socialMediaLink ?? '',
         photos: existing.photos,
       });
@@ -48,7 +50,7 @@ function JournalFormPage({ club, activity }: { club: Club; activity: Activity })
     setError('');
     setSuccess('');
 
-    const validationError = validateActivityJournal(values);
+    const validationError = validateActivityJournal(values, registeredStudents.length);
     if (validationError) {
       setError(validationError);
       return;
@@ -92,6 +94,7 @@ function JournalFormPage({ club, activity }: { club: Club; activity: Activity })
                 values={values}
                 onChange={setValues}
                 onSubmit={handleSubmit}
+                registeredStudents={registeredStudents}
                 error={error}
                 success={success}
                 submitLabel="Save & View Journal"

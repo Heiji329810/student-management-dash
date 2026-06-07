@@ -150,8 +150,12 @@ export function ActivityForm({
             type="checkbox"
             checked={values.locationUndetermined}
             onChange={(e) => {
-              set('locationUndetermined', e.target.checked);
-              if (e.target.checked) set('location', '');
+              const checked = e.target.checked;
+              onChange({
+                ...values,
+                locationUndetermined: checked,
+                location: checked ? '' : values.location,
+              });
             }}
             className="accent-foreground"
           />
@@ -177,8 +181,12 @@ export function ActivityForm({
             type="checkbox"
             checked={values.allStudentsOnCampus}
             onChange={(e) => {
-              set('allStudentsOnCampus', e.target.checked);
-              if (e.target.checked) set('estimatedParticipants', '');
+              const checked = e.target.checked;
+              onChange({
+                ...values,
+                allStudentsOnCampus: checked,
+                estimatedParticipants: checked ? '' : values.estimatedParticipants,
+              });
             }}
             className="accent-foreground"
           />

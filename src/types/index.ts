@@ -72,12 +72,17 @@ export interface ActivityRemovalNotice {
 export interface ActivityJournalInput {
   activityName: string;
   reflection: string;
-  participants: string;
+  participantIds: string[];
   socialMediaLink?: string;
   photos: string[];
 }
 
-export interface ActivityJournal extends ActivityJournalInput {
+/** @deprecated Legacy free-text field from older journal entries */
+export interface ActivityJournalLegacy {
+  participants?: string;
+}
+
+export interface ActivityJournal extends ActivityJournalInput, ActivityJournalLegacy {
   id: string;
   clubId: string;
   activityId: string;
