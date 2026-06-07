@@ -15,9 +15,10 @@ import {
   type ActivityFormValues,
 } from '@/lib/activityForm';
 import {
-  getActiveActivities,
   getActivityEmoji,
   getActivityReleaseOrder,
+  getUpcomingActivities,
+  isActivityPast,
 } from '@/lib/activities';
 import { ManageActivitiesClubGuard } from './manage-activities/useManagedClub';
 import type { Club } from '@/types';
@@ -28,7 +29,7 @@ function ManageActivitiesEditList({ club }: { club: Club }) {
     () => (location.state as { updatedActivityId?: string } | null)?.updatedActivityId ?? null
   );
 
-  const activeActivities = getActiveActivities(club.activities).sort(
+  const upcomingActivities = getUpcomingActivities(club.activities).sort(
     (a, b) => getActivityReleaseOrder(b) - getActivityReleaseOrder(a)
   );
 
@@ -43,7 +44,7 @@ function ManageActivitiesEditList({ club }: { club: Club }) {
           <div className="text-center">
             <h2 className="text-3xl font-bold tracking-tight">Change Activity Information</h2>
             <p className="text-muted-foreground mt-2">
-              {club.name} · Select an activity to edit
+              {club.name} · Select an upcoming activity to edit
             </p>
           </div>
 
@@ -53,13 +54,14 @@ function ManageActivitiesEditList({ club }: { club: Club }) {
             </div>
           )}
 
-          {activeActivities.length === 0 ? (
+          {upcomingActivities.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center border border-border rounded-lg">
-              You don't have any active activities to edit.
+              No upcoming activities to edit. Once an event ends, use Journal My Activities
+              instead.
             </p>
           ) : (
             <div className="space-y-3">
-              {activeActivities.map((item) => {
+              {upcomingActivities.map((item) => {
                 const isUpdated = savedActivityId === item.id;
 
                 return (
@@ -131,11 +133,31 @@ function ManageActivitiesEditForm({ club, activityId }: { club: Club; activityId
         </Button>
         <div className="text-center pt-8 space-y-4">
           <h2 className="text-3xl font-bold tracking-tight">Activity Not Found</h2>
-          <p className="text-muted-foreground">
-            This activity doesn't exist.
-          </p>
+          <p className="text-muted-foreground">This activity doesn't exist.</p>
           <Button asChild variant="outline">
             <Link to={`/manage-activities/${club.id}/edit`}>Choose another activity</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isActivityPast(activity)) {
+    return (
+      <div className="w-full min-h-[60vh] space-y-4">
+        <Button asChild variant="ghost" size="sm" className="-ml-2">
+          <Link to={`/manage-activities/${club.id}/edit`}>← Back to activity list</Link>
+        </Button>
+        <div className="text-center pt-8 space-y-4">
+          <h2 className="text-3xl font-bold tracking-tight">Activity Has Ended</h2>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Past events can no longer be edited. Use Journal My Activities to record photos
+            and reflections instead.
+          </p>
+          <Button asChild>
+            <Link to={`/manage-activities/${club.id}/journal/${activity.id}`}>
+              Go to Journal My Activities
+            </Link>
           </Button>
         </div>
       </div>

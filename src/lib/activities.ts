@@ -47,6 +47,12 @@ export function getPastActivities(activities: Activity[]): Activity[] {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
+export function getUpcomingActivities(activities: Activity[]): Activity[] {
+  return getActiveActivities(activities)
+    .filter((a) => !isActivityPast(a))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
 export function splitActivitiesByTiming(activities: Activity[]) {
   const active = getActiveActivities(activities);
   const upcoming = active

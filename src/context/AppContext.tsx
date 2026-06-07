@@ -13,7 +13,7 @@ import type {
 } from '@/types';
 import { mockClubs, mockStudents, mockUsers } from '@/data/mockData';
 import { buildActivityFields } from '@/lib/activityForm';
-import { getActiveActivities } from '@/lib/activities';
+import { getActiveActivities, isActivityPast } from '@/lib/activities';
 import { journalKey, validateActivityJournal } from '@/lib/journal';
 
 function loadClubs(): Club[] {
@@ -302,7 +302,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!club || club.founderId !== user.id) return false;
 
     const activity = club.activities.find((a) => a.id === activityId);
-    if (!activity || activity.cancelled) return false;
+    if (!activity || activity.cancelled || isActivityPast(activity)) return false;
 
     if (!input.title.trim() || !input.description.trim() || !input.startDateTime) return false;
     if (input.durationType === 'long-term' && !input.endDate) return false;
