@@ -428,7 +428,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!club || club.founderId !== user.id) return false;
 
     const activity = club.activities.find((a) => a.id === activityId);
-    if (!activity || activity.cancelled) return false;
+    if (!activity || activity.cancelled || isActivityPast(activity)) return false;
 
     const removedAt = new Date().toISOString();
     const notices: ActivityRemovalNotice[] = activity.registeredStudents.map((studentId) => ({

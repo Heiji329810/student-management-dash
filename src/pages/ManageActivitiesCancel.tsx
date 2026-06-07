@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
-import { getActiveActivities, getActivityReleaseOrder } from '@/lib/activities';
+import { getActivityReleaseOrder, getUpcomingActivities } from '@/lib/activities';
 import { ActivityManageRow } from './manage-activities/ActivityManageRow';
 import { ManageActivitiesClubGuard } from './manage-activities/useManagedClub';
 
@@ -11,7 +11,7 @@ export function ManageActivitiesCancel() {
   return (
     <ManageActivitiesClubGuard>
       {(club) => {
-        const activeActivities = getActiveActivities(club.activities).sort(
+        const upcomingActivities = getUpcomingActivities(club.activities).sort(
           (a, b) => getActivityReleaseOrder(b) - getActivityReleaseOrder(a)
         );
 
@@ -26,17 +26,18 @@ export function ManageActivitiesCancel() {
                 <div className="text-center">
                   <h2 className="text-3xl font-bold tracking-tight">Cancel Activity</h2>
                   <p className="text-muted-foreground mt-2">
-                    {club.name} · Select an activity to cancel
+                    {club.name} · Select an upcoming activity to cancel
                   </p>
                 </div>
 
-                {activeActivities.length === 0 ? (
+                {upcomingActivities.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center border border-border rounded-lg">
-                    You don't have any activities to cancel.
+                    You don't have any upcoming activities to cancel. Past events cannot be
+                    cancelled.
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {activeActivities.map((activity) => (
+                    {upcomingActivities.map((activity) => (
                       <ActivityManageRow
                         key={activity.id}
                         activity={activity}
