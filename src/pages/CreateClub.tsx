@@ -114,15 +114,16 @@ export function CreateClub() {
   };
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Create a Club</h2>
-        <p className="text-muted-foreground mt-2">
-          Submit a new club for the Clubs & Organizations page
-        </p>
-      </div>
+    <div className="flex justify-center w-full">
+      <div className="w-full max-w-2xl space-y-8">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold tracking-tight">Create a Club</h2>
+          <p className="text-muted-foreground mt-2">
+            Submit a new club for the Clubs & Organizations page
+          </p>
+        </div>
 
-      <Card className="border-2">
+        <Card className="border-2">
         <CardHeader>
           <CardTitle>New Club Application</CardTitle>
           <CardDescription>
@@ -246,6 +247,7 @@ export function CreateClub() {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
