@@ -8,6 +8,9 @@ import type {
   Club,
   CreateActivityInput,
   CreateClubInput,
+  JournalComment,
+  JournalCommentInput,
+  JournalLike,
   Student,
   User,
 } from '@/types';
@@ -15,6 +18,7 @@ import { mockClubs, mockStudents, mockUsers } from '@/data/mockData';
 import { buildActivityFields } from '@/lib/activityForm';
 import { getActiveActivities, isActivityPast } from '@/lib/activities';
 import { journalKey, validateActivityJournal } from '@/lib/journal';
+import { journalCommentKey, journalLikeKey, validateJournalComment } from '@/lib/journalComments';
 
 function loadClubs(): Club[] {
   const saved = localStorage.getItem('clubs');
@@ -41,11 +45,23 @@ function loadActivityJournals(): ActivityJournal[] {
   }));
 }
 
+function loadJournalComments(): JournalComment[] {
+  const saved = localStorage.getItem('journalComments');
+  return saved ? JSON.parse(saved) : [];
+}
+
+function loadJournalLikes(): JournalLike[] {
+  const saved = localStorage.getItem('journalLikes');
+  return saved ? JSON.parse(saved) : [];
+}
+
 interface AppContextType {
   clubs: Club[];
   students: Student[];
   removalNotices: ActivityRemovalNotice[];
   activityJournals: ActivityJournal[];
+  journalComments: JournalComment[];
+  journalLikes: JournalLike[];
   currentUser: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => boolean;
@@ -68,6 +84,14 @@ interface AppContextType {
     activityId: string,
     input: ActivityJournalInput
   ) => boolean;
+  getJournalComments: (clubId: string, activityId: string) => JournalComment[];
+  postJournalComment: (
+    clubId: string,
+    activityId: string,
+    input: JournalCommentInput
+  ) => boolean;
+  getJournalLikes: (clubId: string, activityId: string) => JournalLike[];
+  toggleJournalLike: (clubId: string, activityId: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -76,6 +100,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [clubs, setClubs] = useState<Club[]>(loadClubs);
   const [removalNotices, setRemovalNotices] = useState<ActivityRemovalNotice[]>(loadRemovalNotices);
   const [activityJournals, setActivityJournals] = useState<ActivityJournal[]>(loadActivityJournals);
+  const [journalComments, setJournalComments] = useState<JournalComment[]>(loadJournalComments);
+  const [journalLikes, setJournalLikes] = useState<JournalLike[]>(loadJournalLikes);
   const [students] = useState<Student[]>(mockStudents);
   const [user, setUser] = useState<User | null>(() => {
     // 从 localStorage 恢复登录状态
@@ -103,6 +129,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('activityJournals', JSON.stringify(activityJournals));
   }, [activityJournals]);
+
+  useEffect(() => {
+    localStorage.setItem('journalComments', JSON.stringify(journalComments));
+  }, [journalComments]);
+
+  useEffect(() => {
+    localStorage.setItem('journalLikes', JSON.stringify(journalLikes));
+  }, [journalLikes]);
 
   const login = (email: string, _password: string): boolean => {
     // 简单的登录验证（在实际应用中应该调用后端API）
@@ -414,6 +448,104 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  const getJournalComments = (clubId: string, activityId: string): JournalComment[] => {
+    return journalComments
+      .filter((comment) => comment.clubId === clubId && comment.activityId === activityId)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  };
+
+  const postJournalComment = (
+    clubId: string,
+    activityId: string,
+    input: JournalCommentInput
+  ): boolean => {
+    if (!user) return false;
+
+    const club = clubs.find((c) => c.id === clubId);
+    if (!club) return false;
+
+    const activity = club.activities.find((a) => a.id === activityId);
+    if (!activity) return false;
+
+    const error = validateJournalComment(input);
+    if (error) return false;
+
+    const now = new Date().toISOString();
+    const existing = journalComments.find(
+      (comment) =>
+        comment.clubId === clubId &&
+        comment.activityId === activityId &&
+        comment.userId === user.id
+    );
+
+    if (existing) {
+      setJournalComments((prev) =>
+        prev.map((comment) =>
+          comment.id === existing.id
+            ? {
+                ...comment,
+                rating: input.rating,
+                comment: input.comment.trim(),
+                updatedAt: now,
+              }
+            : comment
+        )
+      );
+    } else {
+      const comment: JournalComment = {
+        id: `jc-${journalCommentKey(clubId, activityId, user.id)}`,
+        clubId,
+        activityId,
+        userId: user.id,
+        userName: user.name,
+        rating: input.rating,
+        comment: input.comment.trim(),
+        createdAt: now,
+        updatedAt: now,
+      };
+      setJournalComments((prev) => [...prev, comment]);
+    }
+
+    return true;
+  };
+
+  const getJournalLikes = (clubId: string, activityId: string): JournalLike[] => {
+    return journalLikes
+      .filter((like) => like.clubId === clubId && like.activityId === activityId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  };
+
+  const toggleJournalLike = (clubId: string, activityId: string): boolean => {
+    if (!user) return false;
+
+    const club = clubs.find((c) => c.id === clubId);
+    if (!club) return false;
+
+    const activity = club.activities.find((a) => a.id === activityId);
+    if (!activity) return false;
+
+    const existing = journalLikes.find(
+      (like) =>
+        like.clubId === clubId && like.activityId === activityId && like.userId === user.id
+    );
+
+    if (existing) {
+      setJournalLikes((prev) => prev.filter((like) => like.id !== existing.id));
+    } else {
+      const like: JournalLike = {
+        id: `jl-${journalLikeKey(clubId, activityId, user.id)}`,
+        clubId,
+        activityId,
+        userId: user.id,
+        userName: user.name,
+        createdAt: new Date().toISOString(),
+      };
+      setJournalLikes((prev) => [...prev, like]);
+    }
+
+    return true;
+  };
+
   const cancelActivity = (
     clubId: string,
     activityId: string,
@@ -465,6 +597,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         students,
         removalNotices,
         activityJournals,
+        journalComments,
+        journalLikes,
         currentUser: user,
         isAuthenticated: !!user,
         login,
@@ -483,6 +617,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getMyRemovalNotices,
         getActivityJournal,
         saveActivityJournal,
+        getJournalComments,
+        postJournalComment,
+        getJournalLikes,
+        toggleJournalLike,
       }}
     >
       {children}

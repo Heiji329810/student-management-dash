@@ -90,6 +90,30 @@ export interface ActivityJournal extends ActivityJournalInput, ActivityJournalLe
   updatedAt: string;
 }
 
+export interface JournalCommentInput {
+  rating: number;
+  comment: string;
+}
+
+export interface JournalComment extends JournalCommentInput {
+  id: string;
+  clubId: string;
+  activityId: string;
+  userId: string;
+  userName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JournalLike {
+  id: string;
+  clubId: string;
+  activityId: string;
+  userId: string;
+  userName: string;
+  createdAt: string;
+}
+
 export type UserRole = 'student' | 'founder';
 
 export interface User {

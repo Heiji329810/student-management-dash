@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, ExternalLink, MapPin, Users, BookOpen } from 'lucide-react';
 import { formatActivityDate, getActivityEmoji } from '@/lib/activities';
+import { JournalCommentsSection } from '@/components/journal/JournalCommentsSection';
 
 export function ActivityJournalView() {
   const { clubId, activityId } = useParams<{ clubId: string; activityId: string }>();
@@ -81,7 +82,7 @@ export function ActivityJournalView() {
       </div>
 
       {!journal ? (
-        <Card className="border-2 border-dashed">
+        <Card className="border-2 border-dashed mb-0">
           <CardContent className="py-12 text-center space-y-4">
             <BookOpen className="h-12 w-12 mx-auto text-muted-foreground" />
             <p className="text-muted-foreground">
@@ -97,7 +98,7 @@ export function ActivityJournalView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-0">
           {journal.photos.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {journal.photos.map((photo, index) => (
@@ -164,6 +165,8 @@ export function ActivityJournalView() {
           )}
         </div>
       )}
+
+      <JournalCommentsSection clubId={clubId} activityId={activityId} />
     </div>
   );
 }

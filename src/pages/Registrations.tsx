@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Calendar, MapPin, Users, XCircle, Sparkles, Clock, Mail } from 'lucide-react';
+import { Calendar, MapPin, Users, XCircle, Sparkles, Clock, Mail, BookOpen, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   formatActivityDate,
@@ -54,26 +54,14 @@ function RegistrationCard({
   const timing = getDaysUntil(activity.date);
   const past = isActivityPast(activity);
 
-  return (
-    <div
-      className="relative md:pl-12 pb-6 last:pb-0 animate-in fade-in slide-in-from-bottom-6 duration-500 fill-mode-both"
-      style={{ animationDelay: `${150 + index * 100}ms` }}
+  const card = (
+    <Card
+      className={cn(
+        'border-2 relative overflow-hidden group transition-all duration-300',
+        'hover:border-primary/50 hover:shadow-xl hover:-translate-y-0.5',
+        past && 'opacity-75'
+      )}
     >
-      <div
-        className={cn(
-          'absolute left-3 top-8 hidden md:flex h-3 w-3 rounded-full border-2 border-border bg-background transition-all duration-300',
-          timing.urgent && !past && 'border-foreground scale-125',
-          past && 'opacity-40'
-        )}
-      />
-
-      <Card
-        className={cn(
-          'border-2 relative overflow-hidden group transition-all duration-300',
-          'hover:border-primary/50 hover:shadow-xl hover:-translate-y-0.5',
-          past && 'opacity-75'
-        )}
-      >
         <div className="absolute inset-0 bg-gradient-to-br from-foreground/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-0 right-0 text-7xl opacity-[0.03] group-hover:opacity-[0.07] transition-opacity duration-300 select-none pointer-events-none">
           {emoji}
@@ -198,16 +186,50 @@ function RegistrationCard({
                 </DialogContent>
               </Dialog>
             )}
-            <Button
-              variant="ghost"
-              asChild
-              className="transition-transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Link to={`/clubs/${club.id}`}>View Club</Link>
-            </Button>
+            {!past && (
+              <Button
+                variant="ghost"
+                asChild
+                className="transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Link to={`/clubs/${club.id}`}>View Club</Link>
+              </Button>
+            )}
+            {past && (
+              <div className="flex items-center gap-2 text-sm font-medium text-primary group-hover:underline">
+                <BookOpen className="h-4 w-4" />
+                View Activity Journal
+                <ArrowRight className="h-4 w-4" />
+              </div>
+            )}
           </div>
         </CardContent>
-      </Card>
+    </Card>
+  );
+
+  return (
+    <div
+      className="relative md:pl-12 pb-6 last:pb-0 animate-in fade-in slide-in-from-bottom-6 duration-500 fill-mode-both"
+      style={{ animationDelay: `${150 + index * 100}ms` }}
+    >
+      <div
+        className={cn(
+          'absolute left-3 top-8 hidden md:flex h-3 w-3 rounded-full border-2 border-border bg-background transition-all duration-300',
+          timing.urgent && !past && 'border-foreground scale-125',
+          past && 'opacity-40'
+        )}
+      />
+
+      {past ? (
+        <Link
+          to={`/clubs/${club.id}/activities/${activity.id}/journal`}
+          className="block h-full"
+        >
+          {card}
+        </Link>
+      ) : (
+        card
+      )}
     </div>
   );
 }

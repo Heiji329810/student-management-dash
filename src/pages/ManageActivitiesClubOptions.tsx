@@ -2,14 +2,13 @@ import { Link } from 'react-router-dom';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CalendarPlus, XCircle, ChevronRight, Pencil, BookOpen } from 'lucide-react';
-import { getActiveActivities, getPastActivities, getUpcomingActivities } from '@/lib/activities';
+import { getPastActivities, getUpcomingActivities } from '@/lib/activities';
 import { ManageActivitiesClubGuard } from './manage-activities/useManagedClub';
 
 export function ManageActivitiesClubOptions() {
   return (
     <ManageActivitiesClubGuard>
       {(club) => {
-        const activeCount = getActiveActivities(club.activities).length;
         const upcomingCount = getUpcomingActivities(club.activities).length;
         const pastCount = getPastActivities(club.activities).length;
 
@@ -93,9 +92,9 @@ export function ManageActivitiesClubOptions() {
                           Cancel Activity
                         </CardTitle>
                         <CardDescription>
-                          {activeCount > 0
-                            ? `Cancel ${activeCount} active ${activeCount === 1 ? 'activity' : 'activities'}`
-                            : 'No active activities to cancel yet'}
+                          {upcomingCount > 0
+                            ? `Cancel ${upcomingCount} upcoming ${upcomingCount === 1 ? 'activity' : 'activities'}`
+                            : 'No upcoming activities to cancel'}
                         </CardDescription>
                       </CardHeader>
                     </Card>
