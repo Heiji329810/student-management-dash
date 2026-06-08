@@ -97,7 +97,7 @@ export function JournalCommentsSection({ clubId, activityId }: JournalCommentsSe
   const hasInteractions = likes.length > 0 || comments.length > 0;
 
   return (
-    <section className="pt-8 mt-2 border-t border-border">
+    <section className="pt-6 mt-12 border-t border-border">
       <div className="flex justify-end mb-3">
         <div className="inline-flex items-stretch rounded-md border border-border bg-muted/40 text-sm overflow-hidden shadow-sm">
           <button
@@ -139,12 +139,17 @@ export function JournalCommentsSection({ clubId, activityId }: JournalCommentsSe
           {comments.length > 0 && (
             <div className="space-y-1.5">
               {comments.map((entry) => (
-                <div key={entry.id} className="leading-relaxed">
+                <div key={entry.id} className="leading-relaxed space-y-1">
                   <p>
                     <span className="font-medium text-primary">{entry.userName}</span>
                     <span className="text-muted-foreground">: </span>
                     <span className="text-foreground/90">{entry.comment}</span>
                   </p>
+                  {entry.rating > 0 && (
+                    <div className="pl-0.5">
+                      <StarRating value={entry.rating} readonly size="sm" />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
