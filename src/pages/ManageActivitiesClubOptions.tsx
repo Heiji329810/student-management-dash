@@ -15,7 +15,7 @@ export function ManageActivitiesClubOptions() {
         return (
           <div className="w-full pb-6">
             <Button asChild variant="ghost" size="sm" className="-ml-2">
-              <Link to="/manage-activities">← Back to Manage Activities</Link>
+              <Link to="/manage/activities">← Back to Manage Activities</Link>
             </Button>
 
             <div className="flex justify-center w-full pt-6">

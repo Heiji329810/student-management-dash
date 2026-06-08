@@ -9,6 +9,10 @@ import { Founder } from './pages/Founder';
 import { Registrations } from './pages/Registrations';
 import { CreateClub } from './pages/CreateClub';
 import { ManageActivities } from './pages/ManageActivities';
+import { ManageClubsAndActivities } from './pages/ManageClubsAndActivities';
+import { ManageClubs } from './pages/ManageClubs';
+import { ManageClubMembers } from './pages/ManageClubMembers';
+import { ManageClubCheckIn } from './pages/ManageClubCheckIn';
 import { ManageActivitiesClubOptions } from './pages/ManageActivitiesClubOptions';
 import { ManageActivitiesAdd } from './pages/ManageActivitiesAdd';
 import { ManageActivitiesEdit } from './pages/ManageActivitiesEdit';
@@ -41,7 +45,13 @@ function App() {
               <Route path="clubs/:clubId" element={<ClubDetail />} />
               <Route path="registrations" element={<Registrations />} />
               <Route path="create-club" element={<CreateClub />} />
-              <Route path="manage-activities" element={<ManageActivities />} />
+              <Route path="manage" element={<ManageClubsAndActivities />} />
+              <Route path="manage/clubs" element={<ManageClubs />} />
+              <Route path="manage/clubs/:clubId" element={<Navigate to="members" replace />} />
+              <Route path="manage/clubs/:clubId/members" element={<ManageClubMembers />} />
+              <Route path="manage/clubs/:clubId/check-in" element={<ManageClubCheckIn />} />
+              <Route path="manage/activities" element={<ManageActivities />} />
+              <Route path="manage-activities" element={<Navigate to="/manage/activities" replace />} />
               <Route path="manage-activities/:clubId" element={<ManageActivitiesClubOptions />} />
               <Route path="manage-activities/:clubId/add" element={<ManageActivitiesAdd />} />
               <Route path="manage-activities/:clubId/edit/:activityId" element={<ManageActivitiesEdit />} />
@@ -49,7 +59,7 @@ function App() {
               <Route path="manage-activities/:clubId/cancel" element={<ManageActivitiesCancel />} />
               <Route path="manage-activities/:clubId/journal/:activityId" element={<ManageActivitiesJournalForm />} />
               <Route path="manage-activities/:clubId/journal" element={<ManageActivitiesJournal />} />
-              <Route path="add-activity" element={<Navigate to="/manage-activities" replace />} />
+              <Route path="add-activity" element={<Navigate to="/manage/activities" replace />} />
               <Route path="add-activity/:clubId" element={<RedirectAddActivity />} />
               <Route path="founder" element={<Founder />} />
             </Route>

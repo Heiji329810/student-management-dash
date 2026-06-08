@@ -46,10 +46,26 @@ const STUDENT_PAGES: NavDestination[] = [
     keywords: ['new club', 'organization', 'found'],
   },
   {
+    id: 'manage',
+    label: 'Manage Clubs and Activities',
+    description: 'Manage club members, check-in, and activities',
+    href: '/manage',
+    group: 'Pages',
+    keywords: ['manage', 'clubs', 'activities', 'check-in', 'members'],
+  },
+  {
+    id: 'manage-clubs',
+    label: 'Manage Clubs',
+    description: 'View members and weekly check-in',
+    href: '/manage/clubs',
+    group: 'Pages',
+    keywords: ['members', 'attendance', 'check-in'],
+  },
+  {
     id: 'manage-activities',
     label: 'Manage Activities',
     description: 'Add, edit, or cancel club activities',
-    href: '/manage-activities',
+    href: '/manage/activities',
     group: 'Pages',
     keywords: ['add activity', 'cancel', 'edit', 'events'],
   },
@@ -77,8 +93,16 @@ export function getNavDestinations(user: User, clubs: Club[]): NavDestination[] 
     for (const club of myClubs) {
       destinations.push(
         {
+          id: `manage-club-${club.id}`,
+          label: `Manage Club: ${club.name}`,
+          description: 'Members and weekly check-in',
+          href: `/manage/clubs/${club.id}/members`,
+          group: 'Manage Clubs',
+          keywords: [club.name, 'members', 'check-in', 'attendance'],
+        },
+        {
           id: `manage-${club.id}`,
-          label: `Manage: ${club.name}`,
+          label: `Manage Activities: ${club.name}`,
           description: 'Add, edit, or cancel activities',
           href: `/manage-activities/${club.id}`,
           group: 'Manage Activities',
@@ -170,7 +194,7 @@ export function groupNavDestinations(
     groups.set(item.group, existing);
   }
 
-  const order = ['Pages', 'Clubs', 'Manage Activities'];
+  const order = ['Pages', 'Clubs', 'Manage Clubs', 'Manage Activities'];
   return order
     .filter((group) => groups.has(group))
     .map((group) => ({ group, items: groups.get(group)! }));

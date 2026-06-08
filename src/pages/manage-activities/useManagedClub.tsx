@@ -46,7 +46,7 @@ export function ManageActivitiesClubGuard({
           This club doesn't exist or you don't have permission to manage its activities.
         </p>
         <Button asChild variant="outline">
-          <Link to="/manage-activities">Back to Manage Activities</Link>
+          <Link to="/manage/activities">Back to Manage Activities</Link>
         </Button>
       </div>
     );

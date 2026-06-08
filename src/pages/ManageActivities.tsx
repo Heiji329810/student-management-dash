@@ -30,6 +30,9 @@ export function ManageActivities() {
   return (
     <div className="space-y-8">
       <div>
+        <Button asChild variant="ghost" size="sm" className="-ml-2 mb-4">
+          <Link to="/manage">← Back to Manage Clubs and Activities</Link>
+        </Button>
         <h2 className="text-3xl font-bold tracking-tight">Manage Activities</h2>
         <p className="text-muted-foreground mt-2">
           Select a club, then choose to add, edit, or cancel activities

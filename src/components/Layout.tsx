@@ -28,7 +28,7 @@ export function Layout() {
       ? [
           { name: 'My Registrations', href: '/registrations', icon: ClipboardList },
           { name: 'Create a Club', href: '/create-club', icon: PlusCircle },
-          { name: 'Manage Activities', href: '/manage-activities', icon: CalendarCog },
+          { name: 'Manage Clubs and Activities', href: '/manage', icon: CalendarCog },
         ]
       : []),
     ...(currentUser.role === 'founder'
@@ -110,7 +110,10 @@ export function Layout() {
           <nav className="space-y-2">
             {navigation.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.href;
+              const isActive =
+                item.href === '/manage'
+                  ? location.pathname.startsWith('/manage')
+                  : location.pathname === item.href;
               return (
                 <Link key={item.href} to={item.href}>
                   <div

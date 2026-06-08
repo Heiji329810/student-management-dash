@@ -35,6 +35,16 @@ export interface Club {
   members: string[];
 }
 
+export type AttendanceStatus = 'present' | 'absent' | 'leave';
+
+export interface ClubAttendanceEntry {
+  clubId: string;
+  weekStart: string;
+  studentId: string;
+  status: AttendanceStatus;
+  updatedAt: string;
+}
+
 export interface CreateClubInput {
   founderNames: string[];
   name: string;
@@ -95,6 +105,7 @@ export interface JournalCommentInput {
   comment: string;
 }
 
+/** @deprecated Migrated to JournalThreadComment */
 export interface JournalComment extends JournalCommentInput {
   id: string;
   clubId: string;
@@ -111,6 +122,40 @@ export interface JournalLike {
   activityId: string;
   userId: string;
   userName: string;
+  createdAt: string;
+}
+
+/** @deprecated Migrated to JournalThreadComment */
+export interface JournalCommentReplyInput {
+  reply: string;
+}
+
+/** @deprecated Migrated to JournalThreadComment */
+export interface JournalCommentReply extends JournalCommentReplyInput {
+  id: string;
+  commentId: string;
+  clubId: string;
+  activityId: string;
+  userId: string;
+  userName: string;
+  createdAt: string;
+}
+
+export interface JournalThreadCommentInput {
+  body: string;
+  rating?: number;
+  parentId?: string;
+}
+
+export interface JournalThreadComment {
+  id: string;
+  clubId: string;
+  activityId: string;
+  parentId: string | null;
+  userId: string;
+  userName: string;
+  body: string;
+  rating?: number;
   createdAt: string;
 }
 

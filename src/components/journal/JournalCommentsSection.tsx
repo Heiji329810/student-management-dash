@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { CommentThreadItem } from '@/components/journal/CommentThreadItem';
 import { StarRating } from '@/components/journal/StarRating';
-import { formatLikeNames, validateJournalComment } from '@/lib/journalComments';
-import { Heart, MessageCircle } from 'lucide-react';
+import {
+  averageRating,
+  countTopLevelComments,
+  formatLikeNames,
+  getInitials,
+  groupThreadComments,
+  validateJournalThreadComment,
+} from '@/lib/journalComments';
+import { Heart, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface JournalCommentsSectionProps {
@@ -22,181 +30,217 @@ interface JournalCommentsSectionProps {
 export function JournalCommentsSection({ clubId, activityId }: JournalCommentsSectionProps) {
   const {
     currentUser,
-    getJournalComments,
-    postJournalComment,
+    isAuthenticated,
+    getJournalThreadComments,
+    postJournalThreadComment,
+    deleteJournalThreadComment,
     getJournalLikes,
     toggleJournalLike,
   } = useApp();
 
-  const comments = getJournalComments(clubId, activityId);
+  const allComments = getJournalThreadComments(clubId, activityId);
   const likes = getJournalLikes(clubId, activityId);
   const hasLiked = currentUser ? likes.some((like) => like.userId === currentUser.id) : false;
-  const myComment = currentUser
-    ? comments.find((entry) => entry.userId === currentUser.id)
-    : undefined;
 
-  const [commentOpen, setCommentOpen] = useState(false);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
-  const [error, setError] = useState('');
+  const [commentBody, setCommentBody] = useState('');
+  const [commentError, setCommentError] = useState('');
 
-  useEffect(() => {
-    if (commentOpen && myComment) {
-      setRating(myComment.rating);
-      setComment(myComment.comment);
-    }
-  }, [commentOpen, myComment?.id, myComment?.rating, myComment?.comment]);
+  const grouped = useMemo(() => groupThreadComments(allComments), [allComments]);
+  const topLevelComments = grouped.get(null) ?? [];
+  const topLevelCount = countTopLevelComments(allComments);
+  const avgRating = averageRating(
+    allComments.filter((comment) => comment.parentId === null && comment.rating).map((c) => c.rating!)
+  );
 
-  const requireAuth = (action: () => void) => {
-    if (!currentUser) {
-      setLoginPromptOpen(true);
-      return;
-    }
-    action();
-  };
+  const getChildren = (parentId: string) => grouped.get(parentId) ?? [];
+
+  const requireAuth = () => setLoginPromptOpen(true);
 
   const handleLike = () => {
-    requireAuth(() => {
-      toggleJournalLike(clubId, activityId);
-    });
+    if (!isAuthenticated) {
+      requireAuth();
+      return;
+    }
+    toggleJournalLike(clubId, activityId);
   };
 
-  const handleOpenComment = () => {
-    requireAuth(() => {
-      setError('');
-      if (myComment) {
-        setRating(myComment.rating);
-        setComment(myComment.comment);
-      } else {
-        setRating(0);
-        setComment('');
-      }
-      setCommentOpen(true);
-    });
-  };
-
-  const handleSubmitComment = (e: React.FormEvent) => {
+  const handlePostComment = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    const validationError = validateJournalComment({ rating, comment });
-    if (validationError) {
-      setError(validationError);
+    if (!isAuthenticated) {
+      requireAuth();
       return;
     }
 
-    const ok = postJournalComment(clubId, activityId, { rating, comment: comment.trim() });
+    setCommentError('');
+    const validationError = validateJournalThreadComment(
+      { body: commentBody, rating },
+      false
+    );
+    if (validationError) {
+      setCommentError(validationError);
+      return;
+    }
+
+    const ok = postJournalThreadComment(clubId, activityId, {
+      body: commentBody.trim(),
+      rating,
+    });
+
     if (ok) {
-      setCommentOpen(false);
+      setCommentBody('');
+      setRating(0);
     } else {
-      setError('Failed to post your comment. Please try again.');
+      setCommentError('Failed to post your comment. Please try again.');
     }
   };
 
-  const hasInteractions = likes.length > 0 || comments.length > 0;
+  const handleReply = (parentId: string, body: string): string | null => {
+    const validationError = validateJournalThreadComment({ body, parentId }, true);
+    if (validationError) return validationError;
+
+    const ok = postJournalThreadComment(clubId, activityId, {
+      body: body.trim(),
+      parentId,
+    });
+
+    return ok ? null : 'Failed to post your reply. Please try again.';
+  };
+
+  const handleDelete = (commentId: string): boolean => {
+    if (!isAuthenticated) {
+      requireAuth();
+      return false;
+    }
+    return deleteJournalThreadComment(commentId);
+  };
 
   return (
-    <section className="pt-6 mt-12 border-t border-border">
-      <div className="flex justify-end mb-3">
-        <div className="inline-flex items-stretch rounded-md border border-border bg-muted/40 text-sm overflow-hidden shadow-sm">
+    <div className="pt-6 mt-12 border-t border-border space-y-8">
+      {/* Likes section */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Heart className="h-5 w-5" />
+            <h3 className="text-lg font-semibold">
+              Likes
+              {likes.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  ({likes.length})
+                </span>
+              )}
+            </h3>
+          </div>
+
           <button
             type="button"
             onClick={handleLike}
             className={cn(
-              'flex items-center gap-1.5 px-4 py-2 transition-colors hover:bg-muted',
-              hasLiked && 'text-red-500'
+              'inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted',
+              hasLiked && 'text-red-500 border-red-500/30 bg-red-500/5'
             )}
           >
             <Heart className={cn('h-4 w-4', hasLiked && 'fill-current')} />
-            Like
-          </button>
-          <span className="w-px bg-border" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={handleOpenComment}
-            className="flex items-center gap-1.5 px-4 py-2 transition-colors hover:bg-muted"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Comment
+            {hasLiked ? 'Liked' : 'Like'}
           </button>
         </div>
-      </div>
 
-      {hasInteractions && (
-        <div className="rounded-md bg-muted/40 px-3 py-2.5 text-sm space-y-2">
-          {likes.length > 0 && (
-            <div className="flex items-start gap-2 text-foreground/90">
-              <Heart className="h-4 w-4 mt-0.5 shrink-0 fill-red-500 text-red-500" />
-              <p>{formatLikeNames(likes)}</p>
+        {likes.length > 0 ? (
+          <div className="rounded-md bg-muted/40 px-4 py-3 text-sm text-foreground/90 flex items-start gap-2">
+            <Heart className="h-4 w-4 mt-0.5 shrink-0 fill-red-500 text-red-500" />
+            <p>{formatLikeNames(likes)}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No likes yet. Be the first to like this event!</p>
+        )}
+      </section>
+
+      {/* Comments section */}
+      <section className="space-y-6 pt-6 border-t border-border">
+        <div className="flex flex-wrap items-center gap-2">
+          <MessageSquare className="h-5 w-5" />
+          <h3 className="text-lg font-semibold">
+            Comments
+            {topLevelCount > 0 && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({topLevelCount})
+              </span>
+            )}
+          </h3>
+          {avgRating !== null && (
+            <span className="text-sm text-muted-foreground">· {avgRating} avg rating</span>
+          )}
+        </div>
+
+        {isAuthenticated ? (
+        <form onSubmit={handlePostComment} className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            {getInitials(currentUser!.name)}
+          </div>
+          <div className="flex-1 space-y-3">
+            <textarea
+              value={commentBody}
+              onChange={(e) => setCommentBody(e.target.value)}
+              placeholder="Add a comment..."
+              rows={3}
+              maxLength={500}
+              className="border-border w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] resize-y"
+            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rate this event</label>
+              <StarRating value={rating} onChange={setRating} />
             </div>
-          )}
-
-          {likes.length > 0 && comments.length > 0 && (
-            <div className="border-t border-border/60" />
-          )}
-
-          {comments.length > 0 && (
-            <div className="space-y-1.5">
-              {comments.map((entry) => (
-                <div key={entry.id} className="leading-relaxed space-y-1">
-                  <p>
-                    <span className="font-medium text-primary">{entry.userName}</span>
-                    <span className="text-muted-foreground">: </span>
-                    <span className="text-foreground/90">{entry.comment}</span>
-                  </p>
-                  {entry.rating > 0 && (
-                    <div className="pl-0.5">
-                      <StarRating value={entry.rating} readonly size="sm" />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+            {commentError && <p className="text-sm text-destructive">{commentError}</p>}
+            <Button type="submit" size="sm">
+              Comment
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="rounded-md border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
+          <Link to="/login" className="text-primary font-medium hover:underline">
+            Log in
+          </Link>{' '}
+          to add a comment.
         </div>
       )}
 
-      <Dialog open={commentOpen} onOpenChange={setCommentOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{myComment ? 'Edit Comment' : 'Write a Comment'}</DialogTitle>
-            <DialogDescription>Rate this event and share your thoughts.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmitComment} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Rating</label>
-              <StarRating value={rating} onChange={setRating} />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="journal-comment-input" className="text-sm font-medium">
-                Comment
-              </label>
-              <textarea
-                id="journal-comment-input"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Write your comment..."
-                rows={3}
-                maxLength={500}
-                autoFocus
-                className="border-border w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] resize-y"
+      {topLevelComments.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-4 text-center">
+          No comments yet. Start the conversation!
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {topLevelComments.map((comment) => (
+            <div
+              key={comment.id}
+              className="rounded-lg border border-border/70 bg-background/50 px-4 py-3"
+            >
+              <CommentThreadItem
+                comment={comment}
+                allComments={allComments}
+                getChildren={getChildren}
+                depth={0}
+                currentUserId={currentUser?.id}
+                onReply={handleReply}
+                onDelete={handleDelete}
+                onRequireAuth={requireAuth}
+                isAuthenticated={isAuthenticated}
               />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full">
-              {myComment ? 'Update' : 'Post'}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+          ))}
+        </div>
+      )}
+
+      </section>
 
       <Dialog open={loginPromptOpen} onOpenChange={setLoginPromptOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Log in required</DialogTitle>
             <DialogDescription>
-              Please log in to like or comment on this event.
+              Please log in to like, comment, or reply on this event.
             </DialogDescription>
           </DialogHeader>
           <Button asChild className="w-full">
@@ -204,6 +248,6 @@ export function JournalCommentsSection({ clubId, activityId }: JournalCommentsSe
           </Button>
         </DialogContent>
       </Dialog>
-    </section>
+    </div>
   );
 }

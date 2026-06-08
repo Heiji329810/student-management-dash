@@ -6,11 +6,15 @@ import type {
   ActivityRemovalNotice,
   CancelActivityInput,
   Club,
+  ClubAttendanceEntry,
+  AttendanceStatus,
   CreateActivityInput,
   CreateClubInput,
   JournalComment,
-  JournalCommentInput,
+  JournalCommentReply,
   JournalLike,
+  JournalThreadComment,
+  JournalThreadCommentInput,
   Student,
   User,
 } from '@/types';
@@ -18,7 +22,8 @@ import { mockClubs, mockStudents, mockUsers } from '@/data/mockData';
 import { buildActivityFields } from '@/lib/activityForm';
 import { getActiveActivities, isActivityPast } from '@/lib/activities';
 import { journalKey, validateActivityJournal } from '@/lib/journal';
-import { journalCommentKey, journalLikeKey, validateJournalComment } from '@/lib/journalComments';
+import { journalLikeKey, validateJournalThreadComment, collectCommentTreeIds } from '@/lib/journalComments';
+import { getClubMemberStudents } from '@/lib/clubs';
 
 function loadClubs(): Club[] {
   const saved = localStorage.getItem('clubs');
@@ -45,13 +50,61 @@ function loadActivityJournals(): ActivityJournal[] {
   }));
 }
 
-function loadJournalComments(): JournalComment[] {
-  const saved = localStorage.getItem('journalComments');
-  return saved ? JSON.parse(saved) : [];
+function loadJournalThreadComments(): JournalThreadComment[] {
+  const saved = localStorage.getItem('journalThreadComments');
+  if (saved) return JSON.parse(saved);
+
+  const migrated: JournalThreadComment[] = [];
+  const oldComments = localStorage.getItem('journalComments');
+  const oldReplies = localStorage.getItem('journalCommentReplies');
+
+  if (oldComments) {
+    const comments = JSON.parse(oldComments) as JournalComment[];
+    for (const comment of comments) {
+      migrated.push({
+        id: comment.id,
+        clubId: comment.clubId,
+        activityId: comment.activityId,
+        parentId: null,
+        userId: comment.userId,
+        userName: comment.userName,
+        body: comment.comment,
+        rating: comment.rating,
+        createdAt: comment.createdAt,
+      });
+    }
+  }
+
+  if (oldReplies) {
+    const replies = JSON.parse(oldReplies) as JournalCommentReply[];
+    for (const reply of replies) {
+      migrated.push({
+        id: reply.id,
+        clubId: reply.clubId,
+        activityId: reply.activityId,
+        parentId: reply.commentId,
+        userId: reply.userId,
+        userName: reply.userName,
+        body: reply.reply,
+        createdAt: reply.createdAt,
+      });
+    }
+  }
+
+  if (migrated.length > 0) {
+    localStorage.setItem('journalThreadComments', JSON.stringify(migrated));
+  }
+
+  return migrated;
 }
 
 function loadJournalLikes(): JournalLike[] {
   const saved = localStorage.getItem('journalLikes');
+  return saved ? JSON.parse(saved) : [];
+}
+
+function loadClubAttendance(): ClubAttendanceEntry[] {
+  const saved = localStorage.getItem('clubAttendance');
   return saved ? JSON.parse(saved) : [];
 }
 
@@ -60,8 +113,9 @@ interface AppContextType {
   students: Student[];
   removalNotices: ActivityRemovalNotice[];
   activityJournals: ActivityJournal[];
-  journalComments: JournalComment[];
+  journalThreadComments: JournalThreadComment[];
   journalLikes: JournalLike[];
+  clubAttendance: ClubAttendanceEntry[];
   currentUser: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => boolean;
@@ -77,6 +131,14 @@ interface AppContextType {
   leaveClub: (clubId: string) => void;
   isClubMember: (clubId: string) => boolean;
   getMyClubs: () => Club[];
+  getClubMembers: (clubId: string) => Student[];
+  getClubAttendanceForWeek: (clubId: string, weekStart: string) => Record<string, AttendanceStatus>;
+  setClubMemberAttendance: (
+    clubId: string,
+    weekStart: string,
+    studentId: string,
+    status: AttendanceStatus
+  ) => boolean;
   getMyRemovalNotices: () => ActivityRemovalNotice[];
   getActivityJournal: (clubId: string, activityId: string) => ActivityJournal | undefined;
   saveActivityJournal: (
@@ -84,12 +146,13 @@ interface AppContextType {
     activityId: string,
     input: ActivityJournalInput
   ) => boolean;
-  getJournalComments: (clubId: string, activityId: string) => JournalComment[];
-  postJournalComment: (
+  getJournalThreadComments: (clubId: string, activityId: string) => JournalThreadComment[];
+  postJournalThreadComment: (
     clubId: string,
     activityId: string,
-    input: JournalCommentInput
+    input: JournalThreadCommentInput
   ) => boolean;
+  deleteJournalThreadComment: (commentId: string) => boolean;
   getJournalLikes: (clubId: string, activityId: string) => JournalLike[];
   toggleJournalLike: (clubId: string, activityId: string) => boolean;
 }
@@ -100,8 +163,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [clubs, setClubs] = useState<Club[]>(loadClubs);
   const [removalNotices, setRemovalNotices] = useState<ActivityRemovalNotice[]>(loadRemovalNotices);
   const [activityJournals, setActivityJournals] = useState<ActivityJournal[]>(loadActivityJournals);
-  const [journalComments, setJournalComments] = useState<JournalComment[]>(loadJournalComments);
+  const [journalThreadComments, setJournalThreadComments] =
+    useState<JournalThreadComment[]>(loadJournalThreadComments);
   const [journalLikes, setJournalLikes] = useState<JournalLike[]>(loadJournalLikes);
+  const [clubAttendance, setClubAttendance] = useState<ClubAttendanceEntry[]>(loadClubAttendance);
   const [students] = useState<Student[]>(mockStudents);
   const [user, setUser] = useState<User | null>(() => {
     // 从 localStorage 恢复登录状态
@@ -131,12 +196,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [activityJournals]);
 
   useEffect(() => {
-    localStorage.setItem('journalComments', JSON.stringify(journalComments));
-  }, [journalComments]);
+    localStorage.setItem('journalThreadComments', JSON.stringify(journalThreadComments));
+  }, [journalThreadComments]);
 
   useEffect(() => {
     localStorage.setItem('journalLikes', JSON.stringify(journalLikes));
   }, [journalLikes]);
+
+  useEffect(() => {
+    localStorage.setItem('clubAttendance', JSON.stringify(clubAttendance));
+  }, [clubAttendance]);
 
   const login = (email: string, _password: string): boolean => {
     // 简单的登录验证（在实际应用中应该调用后端API）
@@ -257,6 +326,65 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const getMyClubs = (): Club[] => {
     if (!user || user.role !== 'student') return [];
     return clubs.filter((club) => club.founderId === user.id);
+  };
+
+  const getClubMembers = (clubId: string): Student[] => {
+    const club = clubs.find((c) => c.id === clubId);
+    if (!club) return [];
+    return getClubMemberStudents(club, students);
+  };
+
+  const getClubAttendanceForWeek = (
+    clubId: string,
+    weekStart: string
+  ): Record<string, AttendanceStatus> => {
+    const records: Record<string, AttendanceStatus> = {};
+    for (const entry of clubAttendance) {
+      if (entry.clubId === clubId && entry.weekStart === weekStart) {
+        records[entry.studentId] = entry.status;
+      }
+    }
+    return records;
+  };
+
+  const setClubMemberAttendance = (
+    clubId: string,
+    weekStart: string,
+    studentId: string,
+    status: AttendanceStatus
+  ): boolean => {
+    if (!user || user.role !== 'student') return false;
+
+    const club = clubs.find((c) => c.id === clubId);
+    if (!club || club.founderId !== user.id) return false;
+    if (!club.members.includes(studentId)) return false;
+
+    const now = new Date().toISOString();
+    const existing = clubAttendance.find(
+      (entry) =>
+        entry.clubId === clubId &&
+        entry.weekStart === weekStart &&
+        entry.studentId === studentId
+    );
+
+    if (existing) {
+      setClubAttendance((prev) =>
+        prev.map((entry) =>
+          entry.clubId === clubId &&
+          entry.weekStart === weekStart &&
+          entry.studentId === studentId
+            ? { ...entry, status, updatedAt: now }
+            : entry
+        )
+      );
+    } else {
+      setClubAttendance((prev) => [
+        ...prev,
+        { clubId, weekStart, studentId, status, updatedAt: now },
+      ]);
+    }
+
+    return true;
   };
 
   const isClubMember = (clubId: string): boolean => {
@@ -448,16 +576,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  const getJournalComments = (clubId: string, activityId: string): JournalComment[] => {
-    return journalComments
-      .filter((comment) => comment.clubId === clubId && comment.activityId === activityId)
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const getJournalThreadComments = (
+    clubId: string,
+    activityId: string
+  ): JournalThreadComment[] => {
+    return journalThreadComments.filter(
+      (comment) => comment.clubId === clubId && comment.activityId === activityId
+    );
   };
 
-  const postJournalComment = (
+  const postJournalThreadComment = (
     clubId: string,
     activityId: string,
-    input: JournalCommentInput
+    input: JournalThreadCommentInput
   ): boolean => {
     if (!user) return false;
 
@@ -467,45 +598,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const activity = club.activities.find((a) => a.id === activityId);
     if (!activity) return false;
 
-    const error = validateJournalComment(input);
+    const isReply = !!input.parentId;
+    const error = validateJournalThreadComment(input, isReply);
     if (error) return false;
 
-    const now = new Date().toISOString();
-    const existing = journalComments.find(
-      (comment) =>
-        comment.clubId === clubId &&
-        comment.activityId === activityId &&
-        comment.userId === user.id
-    );
-
-    if (existing) {
-      setJournalComments((prev) =>
-        prev.map((comment) =>
-          comment.id === existing.id
-            ? {
-                ...comment,
-                rating: input.rating,
-                comment: input.comment.trim(),
-                updatedAt: now,
-              }
-            : comment
-        )
-      );
-    } else {
-      const comment: JournalComment = {
-        id: `jc-${journalCommentKey(clubId, activityId, user.id)}`,
-        clubId,
-        activityId,
-        userId: user.id,
-        userName: user.name,
-        rating: input.rating,
-        comment: input.comment.trim(),
-        createdAt: now,
-        updatedAt: now,
-      };
-      setJournalComments((prev) => [...prev, comment]);
+    if (input.parentId) {
+      const parent = journalThreadComments.find((comment) => comment.id === input.parentId);
+      if (!parent || parent.clubId !== clubId || parent.activityId !== activityId) {
+        return false;
+      }
     }
 
+    const comment: JournalThreadComment = {
+      id: `jt-${clubId}-${activityId}-${user.id}-${Date.now()}`,
+      clubId,
+      activityId,
+      parentId: input.parentId ?? null,
+      userId: user.id,
+      userName: user.name,
+      body: input.body.trim(),
+      rating: isReply ? undefined : input.rating,
+      createdAt: new Date().toISOString(),
+    };
+
+    setJournalThreadComments((prev) => [...prev, comment]);
+    return true;
+  };
+
+  const deleteJournalThreadComment = (commentId: string): boolean => {
+    if (!user) return false;
+
+    const target = journalThreadComments.find((comment) => comment.id === commentId);
+    if (!target || target.userId !== user.id) return false;
+
+    const idsToRemove = collectCommentTreeIds(commentId, journalThreadComments);
+    setJournalThreadComments((prev) => prev.filter((comment) => !idsToRemove.has(comment.id)));
     return true;
   };
 
@@ -597,8 +724,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         students,
         removalNotices,
         activityJournals,
-        journalComments,
+        journalThreadComments,
         journalLikes,
+        clubAttendance,
         currentUser: user,
         isAuthenticated: !!user,
         login,
@@ -614,11 +742,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         leaveClub,
         isClubMember,
         getMyClubs,
+        getClubMembers,
+        getClubAttendanceForWeek,
+        setClubMemberAttendance,
         getMyRemovalNotices,
         getActivityJournal,
         saveActivityJournal,
-        getJournalComments,
-        postJournalComment,
+        getJournalThreadComments,
+        postJournalThreadComment,
+        deleteJournalThreadComment,
         getJournalLikes,
         toggleJournalLike,
       }}
