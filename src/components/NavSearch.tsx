@@ -41,7 +41,6 @@ export function NavSearch() {
 
   useEffect(() => {
     if (open) {
-      setQuery('');
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
@@ -54,11 +53,17 @@ export function NavSearch() {
   if (!currentUser) return null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) setQuery('');
+        setOpen(nextOpen);
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2" aria-label="Search pages">
           <Search className="h-4 w-4" />
-          Search
+          <span className="hidden sm:inline">Search</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg gap-0 p-0 overflow-hidden" showCloseButton>

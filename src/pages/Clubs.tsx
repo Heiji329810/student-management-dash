@@ -19,17 +19,22 @@ const categoryEmojis: Record<string, string> = {
   'Social Care/Volunteer': '🤝',
 };
 
-function ClubCard({ club, isStudent }: { club: Club; isStudent: boolean }) {
+export function ClubCard({ club, isStudent }: { club: Club; isStudent: boolean }) {
   const memberCount = getClubMemberCount(club);
   const eventCount = getClubEventCount(club);
 
   return (
     <Card className="border-2 flex flex-col h-full hover:border-primary/40 transition-colors">
       <CardHeader className="pb-3 space-y-3">
-        <Badge variant="secondary" className="w-fit text-xs">
-          {categoryEmojis[club.category] ? `${categoryEmojis[club.category]} ` : ''}
-          {club.category}
-        </Badge>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="secondary" className="w-fit text-xs">
+            {categoryEmojis[club.category] ? `${categoryEmojis[club.category]} ` : ''}
+            {club.category}
+          </Badge>
+          {club.isSchoolOfficial && (
+            <Badge className="w-fit text-xs">School Official</Badge>
+          )}
+        </div>
         <div>
           <CardTitle className="text-lg leading-snug">{club.name}</CardTitle>
           <CardDescription className="mt-2 line-clamp-2 text-sm">
@@ -52,12 +57,20 @@ function ClubCard({ club, isStudent }: { club: Club; isStudent: boolean }) {
 
         <p className="text-xs text-muted-foreground">Founded by {club.founderName}</p>
 
-        <div className={`mt-auto flex flex-col gap-2 ${isStudent ? '' : ''}`}>
+        <div className="mt-auto flex flex-col gap-2">
           {isStudent && (
             <ClubJoinButton
               clubId={club.id}
               className="h-10 w-full min-w-0 px-4 text-sm font-semibold"
             />
+          )}
+          {!isStudent && (
+            <Button asChild variant="outline" size="sm" className="w-full gap-2">
+              <Link to={`/clubs/${club.id}/members`}>
+                <Users className="h-4 w-4" />
+                Show members
+              </Link>
+            </Button>
           )}
           <Button asChild variant="outline" size="sm" className="w-full gap-2">
             <Link to={`/clubs/${club.id}`}>

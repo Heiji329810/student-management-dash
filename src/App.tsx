@@ -20,14 +20,22 @@ import { ManageActivitiesCancel } from './pages/ManageActivitiesCancel';
 import { ManageActivitiesJournal } from './pages/ManageActivitiesJournal';
 import { ManageActivitiesJournalForm } from './pages/ManageActivitiesJournalForm';
 import { ActivityJournalView } from './pages/ActivityJournalView';
+import { RateMyClub } from '@/pages/RateMyClub';
 import { RedirectAddActivity } from './pages/RedirectAddActivity';
 import { ClubDetail } from './pages/ClubDetail';
+import { ClubMembers } from './pages/ClubMembers';
 import { Login } from './pages/Login';
+import { TeacherClubParticipation } from './pages/TeacherClubParticipation';
+import { StudentCouncil } from './pages/StudentCouncil';
+import { NewStudentCouncilYear } from './pages/NewStudentCouncilYear';
+import { StudentCouncilYear } from './pages/StudentCouncilYear';
+import { LanguageProvider } from './components/LanguageProvider';
 
 function App() {
   return (
-    <ThemeProvider>
-      <AppProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <AppProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -41,7 +49,12 @@ function App() {
             >
               <Route index element={<Home />} />
               <Route path="clubs" element={<Clubs />} />
+              <Route path="club-elections" element={<Navigate to="/clubs" replace />} />
+              <Route path="elections" element={<Navigate to="/clubs" replace />} />
+              <Route path="school-official-clubs" element={<Navigate to="/clubs" replace />} />
               <Route path="clubs/:clubId/activities/:activityId/journal" element={<ActivityJournalView />} />
+              <Route path="clubs/:clubId/participation" element={<TeacherClubParticipation />} />
+              <Route path="clubs/:clubId/members" element={<ClubMembers />} />
               <Route path="clubs/:clubId" element={<ClubDetail />} />
               <Route path="registrations" element={<Registrations />} />
               <Route path="create-club" element={<CreateClub />} />
@@ -50,6 +63,7 @@ function App() {
               <Route path="manage/clubs/:clubId" element={<Navigate to="members" replace />} />
               <Route path="manage/clubs/:clubId/members" element={<ManageClubMembers />} />
               <Route path="manage/clubs/:clubId/check-in" element={<ManageClubCheckIn />} />
+              <Route path="rate-my-club" element={<RateMyClub />} />
               <Route path="manage/activities" element={<ManageActivities />} />
               <Route path="manage-activities" element={<Navigate to="/manage/activities" replace />} />
               <Route path="manage-activities/:clubId" element={<ManageActivitiesClubOptions />} />
@@ -62,12 +76,16 @@ function App() {
               <Route path="add-activity" element={<Navigate to="/manage/activities" replace />} />
               <Route path="add-activity/:clubId" element={<RedirectAddActivity />} />
               <Route path="founder" element={<Founder />} />
+              <Route path="student-council" element={<StudentCouncil />} />
+              <Route path="student-council/new" element={<NewStudentCouncilYear />} />
+              <Route path="student-council/years/:termId" element={<StudentCouncilYear />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
-      </AppProvider>
-    </ThemeProvider>
+        </AppProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
 

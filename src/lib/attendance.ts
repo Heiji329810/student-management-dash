@@ -46,3 +46,40 @@ export function formatWeekRange(weekStart: string): string {
 export function attendanceKey(clubId: string, weekStart: string, studentId: string): string {
   return `${clubId}:${weekStart}:${studentId}`;
 }
+
+export function countStudentPresentSessions(
+  entries: { clubId: string; studentId: string; status: AttendanceStatus }[],
+  clubId: string,
+  studentId: string
+): number {
+  return entries.filter(
+    (entry) =>
+      entry.clubId === clubId &&
+      entry.studentId === studentId &&
+      entry.status === 'present'
+  ).length;
+}
+
+export function getCalendarMonthDays(month: Date): Date[] {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+  const start = new Date(first);
+  const mondayOffset = first.getDay() === 0 ? 6 : first.getDay() - 1;
+  start.setDate(first.getDate() - mondayOffset);
+
+  const end = new Date(last);
+  const sundayOffset = last.getDay() === 0 ? 0 : 7 - last.getDay();
+  end.setDate(last.getDate() + sundayOffset);
+
+  const days: Date[] = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    days.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+export function shiftMonth(month: Date, amount: number): Date {
+  return new Date(month.getFullYear(), month.getMonth() + amount, 1);
+}

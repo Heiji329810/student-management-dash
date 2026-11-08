@@ -20,6 +20,7 @@ export function ClubJoinButton({
   const student = students.find((s) => s.studentId === currentUser.studentId);
   const club = clubs.find((c) => c.id === clubId);
   if (!student || !club) return null;
+  if (club.category === 'School Official Events') return null;
 
   const joined = isStudentClubMember(club, student.id);
 

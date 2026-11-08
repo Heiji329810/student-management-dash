@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import type { Club } from '@/types';
@@ -22,6 +22,21 @@ export function ManageClubGuard({ children }: { children: (club: Club) => ReactN
   const { club, currentUser, isOwner } = useManageClub();
 
   if (!currentUser) return null;
+
+  if (currentUser.role === 'founder') {
+    if (!club) {
+      return (
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold tracking-tight">Club Not Found</h2>
+          <p className="text-muted-foreground">This club doesn't exist.</p>
+          <Button asChild variant="outline">
+            <Link to="/clubs">Back to Clubs</Link>
+          </Button>
+        </div>
+      );
+    }
+    return <Navigate to={`/clubs/${club.id}/members`} replace />;
+  }
 
   if (currentUser.role !== 'student') {
     return (

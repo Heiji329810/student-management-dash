@@ -1,24 +1,28 @@
 import { Link } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
-import { CLUB_CATEGORIES } from '@/data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, GraduationCap, Sparkles, Trophy } from 'lucide-react';
+import { CalendarDays, GraduationCap, Sparkles, Star, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getClubMemberCount } from '@/lib/clubs';
+import { calculateClubRatingScore } from '@/lib/clubRatings';
+import { TeacherDashboard } from '@/pages/TeacherDashboard';
 
 export function Home() {
-  const { clubs, currentUser, students } = useApp();
+  const { clubs, clubRatings, currentUser, students } = useApp();
   
   if (!currentUser) {
     return null;
   }
+
+  if (currentUser.role === 'founder') {
+    return <TeacherDashboard />;
+  }
   
-  const totalActivities = clubs.reduce((sum, club) => sum + club.activities.length, 0);
-  const totalMembers = clubs.reduce((sum, club) => sum + getClubMemberCount(club), 0);
   const largestClub = clubs.length
     ? clubs.reduce((max, club) => (getClubMemberCount(club) > getClubMemberCount(max) ? club : max))
     : null;
-  const avgMembers = clubs.length ? Math.round(totalMembers / clubs.length) : 0;
+  const studentCouncil = clubs.find((club) => club.name === 'Student Council');
+  const studentCouncilMembers = studentCouncil ? getClubMemberCount(studentCouncil) : 0;
   
   const userRegistrations = (() => {
     if (currentUser.role !== 'student' || !currentUser.studentId) return 0;
@@ -44,28 +48,27 @@ export function Home() {
       href: '/clubs',
     },
     {
-      title: 'Total Activities',
-      value: totalActivities,
-      description: 'Available events',
-      icon: Activity,
-      gradient: 'from-purple-500/20 to-pink-500/20',
-      iconColor: 'text-purple-400',
-      image: '✨',
-      href: '/clubs',
-    },
-    {
-      title: currentUser.role === 'student' ? 'My Registrations' : 'Total Members',
-      value: currentUser.role === 'student' ? userRegistrations : totalMembers,
-      description: currentUser.role === 'student' 
-        ? 'Activities registered' 
-        : 'Across all clubs',
-      icon: currentUser.role === 'student' ? Sparkles : Trophy,
+      title: 'My Registrations',
+      value: userRegistrations,
+      description: 'Activities registered',
+      icon: Sparkles,
       gradient: 'from-orange-500/20 to-red-500/20',
       iconColor: 'text-orange-400',
-      image: currentUser.role === 'student' ? '⭐' : '🏆',
-      href: currentUser.role === 'student' ? '/registrations' : undefined,
+      image: '⭐',
+      href: '/registrations',
     },
   ];
+
+  const recordYears = Array.from(
+    new Set([
+      ...clubRatings.map((rating) => new Date(rating.createdAt).getFullYear()),
+      ...clubs.flatMap((club) =>
+        club.activities.map((activity) => new Date(activity.date).getFullYear())
+      ),
+    ])
+  )
+    .filter((year) => Number.isFinite(year))
+    .sort((a, b) => b - a);
 
   return (
     <div className="space-y-8">
@@ -76,7 +79,7 @@ export function Home() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2">
         {cardData.map((card, index) => {
           const Icon = card.icon;
           const cardContent = (
@@ -125,7 +128,7 @@ export function Home() {
       {/* Recent Activity Section */}
       <div className="mt-12">
         <h3 className="text-2xl font-bold tracking-tight mb-6">Quick Stats</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-3">
           <Card className="border-2">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -163,33 +166,135 @@ export function Home() {
           <Card className="border-2">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Categories
+                Student Council Members
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {CLUB_CATEGORIES.length}
+                {studentCouncilMembers}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Different categories
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Avg. Members
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{avgMembers}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Per organization
+                Current council crew
               </p>
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      <div className="space-y-10">
+        <h3 className="text-2xl font-bold tracking-tight">Year Records</h3>
+        {recordYears.length === 0 ? (
+          <p className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+            No yearly club or event records are available yet.
+          </p>
+        ) : (
+          recordYears.map((year) => {
+            const yearRatings = clubRatings.filter(
+              (rating) => new Date(rating.createdAt).getFullYear() === year
+            );
+            const highestRatedClubs = clubs
+              .map((club) => {
+                const ratings = yearRatings.filter((rating) => rating.clubId === club.id);
+                return {
+                  club,
+                  ratingCount: ratings.length,
+                  average:
+                    ratings.length > 0
+                      ? ratings.reduce(
+                          (total, rating) =>
+                            total + calculateClubRatingScore(rating),
+                          0
+                        ) / ratings.length
+                      : 0,
+                };
+              })
+              .filter((item) => item.ratingCount > 0)
+              .sort((a, b) => b.average - a.average)
+              .slice(0, 3);
+            const largestEvents = clubs
+              .flatMap((club) =>
+                club.activities
+                  .filter(
+                    (activity) =>
+                      new Date(activity.date).getFullYear() === year &&
+                      !activity.cancelled
+                  )
+                  .map((activity) => ({ activity, club }))
+              )
+              .sort(
+                (a, b) =>
+                  b.activity.registeredStudents.length -
+                  a.activity.registeredStudents.length
+              )
+              .slice(0, 3);
+
+            return (
+              <section key={year} className="space-y-5">
+                <h4 className="text-xl font-semibold">{year}</h4>
+                <div className="space-y-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold">
+                    <Star className="h-4 w-4" />
+                    Highest-rated clubs
+                  </p>
+                  {highestRatedClubs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No club ratings were submitted this year.
+                    </p>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {highestRatedClubs.map(({ club, average, ratingCount }, index) => (
+                        <Link key={club.id} to={`/clubs/${club.id}`}>
+                          <Card className="h-full border-2 transition-colors hover:border-primary/50">
+                            <CardContent className="pt-6">
+                              <p className="text-xs text-muted-foreground">#{index + 1}</p>
+                              <p className="mt-1 font-semibold">{club.name}</p>
+                              <p className="mt-3 text-2xl font-bold">{average.toFixed(1)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {ratingCount} rating{ratingCount === 1 ? '' : 's'}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold">
+                    <CalendarDays className="h-4 w-4" />
+                    Largest student events
+                  </p>
+                  {largestEvents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No student events were posted this year.
+                    </p>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {largestEvents.map(({ activity, club }, index) => (
+                        <Link key={`${club.id}-${activity.id}`} to={`/clubs/${club.id}`}>
+                          <Card className="h-full border-2 transition-colors hover:border-primary/50">
+                            <CardContent className="pt-6">
+                              <p className="text-xs text-muted-foreground">#{index + 1}</p>
+                              <p className="mt-1 font-semibold">{activity.title}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {club.name}
+                              </p>
+                              <p className="mt-3 flex items-center gap-1 text-sm font-medium">
+                                <Users className="h-4 w-4" />
+                                {activity.registeredStudents.length} participants
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })
+        )}
       </div>
     </div>
   );

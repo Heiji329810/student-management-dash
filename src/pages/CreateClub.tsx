@@ -4,6 +4,7 @@ import { useApp } from '@/context/AppContext';
 import { CLUB_CATEGORIES } from '@/data/mockData';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Users } from 'lucide-react';
+import { Check, CheckCircle2, Plus, School, Trash2, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const MAX_FOUNDERS = 5;
@@ -27,13 +28,16 @@ function countWords(text: string): number {
 }
 
 export function CreateClub() {
-  const { currentUser, createClub } = useApp();
+  const { currentUser, clubApplications, submitClubApplication } = useApp();
   const navigate = useNavigate();
 
   const [founderNames, setFounderNames] = useState(['']);
   const [clubName, setClubName] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
+  const [wantsSchoolOfficial, setWantsSchoolOfficial] = useState(false);
+  const [managingTeacherName, setManagingTeacherName] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
   if (!currentUser) {
@@ -51,7 +55,43 @@ export function CreateClub() {
     );
   }
 
+  if (submitted) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <Card className="border-2">
+          <CardContent className="flex flex-col items-center py-14 text-center">
+            <CheckCircle2 className="h-12 w-12 text-green-600 dark:text-green-400" />
+            <h2 className="mt-4 text-2xl font-bold">Application submitted</h2>
+            <p className="mt-2 max-w-md text-sm text-muted-foreground">
+              Your club has not been published yet. A managing teacher will review the
+              complete application, and you will receive a notification after a decision.
+            </p>
+            {wantsSchoolOfficial && (
+              <div className="mt-3 space-y-1 rounded-md bg-muted px-4 py-2 text-sm">
+                <p>You requested School Official Club status.</p>
+                <p>
+                  <span>Teacher in charge of managing the club</span>
+                  {': '}
+                  {managingTeacherName}
+                </p>
+              </div>
+            )}
+            <div className="mt-6 flex gap-3">
+              <Button onClick={() => setSubmitted(false)}>Submit another application</Button>
+              <Button variant="outline" onClick={() => navigate('/clubs')}>
+                Browse clubs
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const wordCount = countWords(description);
+  const myApplications = clubApplications.filter(
+    (application) => application.applicantUserId === currentUser.id
+  );
 
   const updateFounderName = (index: number, value: string) => {
     setFounderNames((prev) => prev.map((name, i) => (i === index ? value : name)));
@@ -98,18 +138,24 @@ export function CreateClub() {
       setError(`Introduction must be no more than ${MAX_WORDS} words.`);
       return;
     }
+    if (wantsSchoolOfficial && !managingTeacherName.trim()) {
+      setError('Please enter the name of the teacher in charge of managing the club.');
+      return;
+    }
 
-    const success = createClub({
+    const success = submitClubApplication({
       founderNames: trimmedFounders,
       name: clubName,
       category,
       description,
+      wantsSchoolOfficial,
+      managingTeacherName: wantsSchoolOfficial ? managingTeacherName.trim() : undefined,
     });
 
     if (success) {
-      navigate('/clubs');
+      setSubmitted(true);
     } else {
-      setError('Failed to create club. Please try again.');
+      setError('Unable to submit this application. You may already have an active application with this club name.');
     }
   };
 
@@ -119,15 +165,60 @@ export function CreateClub() {
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight">Create a Club</h2>
           <p className="text-muted-foreground mt-2">
-            Submit a new club for the Clubs & Organizations page
+            Submit a club application for teacher review
           </p>
         </div>
+
+        {myApplications.length > 0 && (
+          <Card className="border-2">
+            <CardHeader>
+              <CardTitle>My Applications</CardTitle>
+              <CardDescription>
+                Teacher decisions and comments for your submitted clubs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {myApplications.map((application) => (
+                <div key={application.id} className="rounded-md border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{application.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Submitted {new Date(application.submittedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">
+                        {application.status.replaceAll('_', ' ')}
+                      </Badge>
+                      {application.wantsSchoolOfficial && (
+                        <Badge>School Official</Badge>
+                      )}
+                    </div>
+                  </div>
+                  {application.managingTeacherName && (
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      <span>Teacher in charge of managing the club</span>
+                      {': '}
+                      {application.managingTeacherName}
+                    </p>
+                  )}
+                  {application.teacherComment && (
+                    <p className="mt-3 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                      Teacher comment: {application.teacherComment}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-2">
         <CardHeader>
           <CardTitle>New Club Application</CardTitle>
           <CardDescription>
-            Fill in the details below. Your club will appear on the Clubs page once submitted.
+            Fill in the details below. Your club will be published only after approval.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -212,6 +303,68 @@ export function CreateClub() {
               </Select>
             </div>
 
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-start gap-3">
+                <School className="mt-0.5 h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-sm font-medium">
+                    Do you want to apply to become a School Official Club?
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    If a teacher approves this request, the club will be established
+                    as a School Official Club.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={wantsSchoolOfficial}
+                  className={cn(
+                    wantsSchoolOfficial &&
+                      'border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background'
+                  )}
+                  onClick={() => setWantsSchoolOfficial(true)}
+                >
+                  {wantsSchoolOfficial && <Check className="h-4 w-4" />}
+                  Yes, apply
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={!wantsSchoolOfficial}
+                  className={cn(
+                    !wantsSchoolOfficial &&
+                      'border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background'
+                  )}
+                  onClick={() => setWantsSchoolOfficial(false)}
+                >
+                  {!wantsSchoolOfficial && <Check className="h-4 w-4" />}
+                  No, ordinary club
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {wantsSchoolOfficial
+                  ? 'This application will request School Official Club status.'
+                  : 'This application will be for an ordinary club.'}
+              </p>
+              {wantsSchoolOfficial && (
+                <div className="space-y-2">
+                  <label htmlFor="managingTeacherName" className="text-sm font-medium">
+                    Teacher in charge of managing the club
+                  </label>
+                  <Input
+                    id="managingTeacherName"
+                    value={managingTeacherName}
+                    onChange={(event) => setManagingTeacherName(event.target.value)}
+                    placeholder="Enter the teacher's name"
+                    required
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label htmlFor="description" className="text-sm font-medium">
@@ -238,7 +391,7 @@ export function CreateClub() {
 
             <div className="flex gap-3 pt-2">
               <Button type="submit" className="flex-1">
-                Create Club
+                Submit Application
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate('/clubs')}>
                 Cancel

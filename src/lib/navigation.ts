@@ -54,6 +54,14 @@ const STUDENT_PAGES: NavDestination[] = [
     keywords: ['manage', 'clubs', 'activities', 'check-in', 'members'],
   },
   {
+    id: 'rate-my-club',
+    label: 'Rate My Club',
+    description: 'Rate clubs you actively participate in',
+    href: '/rate-my-club',
+    group: 'Pages',
+    keywords: ['rate', 'rating', 'review', 'feedback', 'club'],
+  },
+  {
     id: 'manage-clubs',
     label: 'Manage Clubs',
     description: 'View members and weekly check-in',
@@ -74,11 +82,27 @@ const STUDENT_PAGES: NavDestination[] = [
 const FOUNDER_PAGES: NavDestination[] = [
   {
     id: 'founder',
-    label: 'My Organizations',
-    description: 'Manage your founded organizations',
+    label: 'Organize Official Events',
+    description: 'Create school events and view registrations',
     href: '/founder',
     group: 'Pages',
-    keywords: ['organizations', 'clubs'],
+    keywords: ['official events', 'registrations'],
+  },
+  {
+    id: 'student-council',
+    label: 'Student Council',
+    description: 'Configure annual departments and crew records',
+    href: '/student-council',
+    group: 'Pages',
+    keywords: ['council', 'departments', 'annual crew'],
+  },
+  {
+    id: 'student-council-new',
+    label: 'New school year',
+    description: 'Add a Student Council crew for a school year',
+    href: '/student-council/new',
+    group: 'Pages',
+    keywords: ['council', 'departments', 'school year', 'crew'],
   },
 ];
 
@@ -88,7 +112,11 @@ export function getNavDestinations(user: User, clubs: Club[]): NavDestination[] 
     user.role === 'student' ? clubs.filter((club) => club.founderId === user.id) : [];
 
   if (user.role === 'student') {
-    destinations.push(...STUDENT_PAGES);
+    destinations.push(
+      ...STUDENT_PAGES.filter(
+        (page) => myClubs.length > 0 || !page.id.startsWith('manage')
+      )
+    );
 
     for (const club of myClubs) {
       destinations.push(

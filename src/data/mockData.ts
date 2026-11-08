@@ -23,6 +23,7 @@ export const mockUsers: User[] = [
   { id: 'u1', name: 'Alice Johnson', email: 'alice@university.edu', role: 'student', studentId: 'STU001' },
   { id: 'u2', name: 'Bob Smith', email: 'bob@university.edu', role: 'student', studentId: 'STU002' },
   { id: 'u3', name: 'Emma Wilson', email: 'emma@university.edu', role: 'student', studentId: 'STU005' },
+  { id: 'u4', name: 'Charlie Brown', email: 'charlie@university.edu', role: 'student', studentId: 'STU003' },
   { id: 'f1', name: 'John Founder', email: 'john@university.edu', role: 'founder' },
   { id: 'f2', name: 'Sarah Leader', email: 'sarah@university.edu', role: 'founder' },
 ];
@@ -173,6 +174,17 @@ export const mockClubs: Club[] = [
         clubId: 'c6',
       },
     ],
+  },
+  {
+    id: 'c7',
+    name: 'Student Council',
+    description:
+      'The student representative body that supports school events and annual council departments.',
+    category: 'School Official Events',
+    founderId: 'f1',
+    founderName: 'John Founder',
+    members: ['s1', 's2', 's3'],
+    activities: [],
   },
 ];
 

@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Calendar, MapPin, Users, CheckCircle2, XCircle, Sparkles, BookOpen, ArrowRight } from 'lucide-react';
+import { Calendar, MapPin, Users, CheckCircle2, XCircle, Sparkles, BookOpen, ArrowRight, UserCheck } from 'lucide-react';
 import {
   formatActivityDate,
   formatEndDate,
@@ -21,6 +21,7 @@ import {
   splitActivitiesByTiming,
 } from '@/lib/activities';
 import { getClubMemberCount } from '@/lib/clubs';
+import { countStudentPresentSessions } from '@/lib/attendance';
 import { ClubJoinButton } from '@/components/ClubJoinButton';
 import type { Activity, Club } from '@/types';
 
@@ -207,7 +208,15 @@ function ActivityCard({
 
 export function ClubDetail() {
   const { clubId } = useParams<{ clubId: string }>();
-  const { clubs, currentUser, students, registerForActivity, unregisterFromActivity, getActivityJournal } = useApp();
+  const {
+    clubs,
+    currentUser,
+    students,
+    clubAttendance,
+    registerForActivity,
+    unregisterFromActivity,
+    getActivityJournal,
+  } = useApp();
 
   if (!currentUser) return null;
 
@@ -226,6 +235,14 @@ export function ClubDetail() {
   }
 
   const { upcoming, past } = splitActivitiesByTiming(club.activities);
+  const currentStudent =
+    currentUser.role === 'student'
+      ? students.find((student) => student.studentId === currentUser.studentId)
+      : undefined;
+  const isMember = !!currentStudent && club.members.includes(currentStudent.id);
+  const joinedCount = currentStudent
+    ? countStudentPresentSessions(clubAttendance, club.id, currentStudent.id)
+    : 0;
 
   const checkRegistered = (activity: Activity) => {
     if (currentUser.role !== 'student' || !currentUser.studentId) return false;
@@ -281,7 +298,10 @@ export function ClubDetail() {
         </Button>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">{club.name}</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-3xl font-bold tracking-tight">{club.name}</h2>
+              {club.isSchoolOfficial && <Badge>School Official</Badge>}
+            </div>
             <p className="text-muted-foreground mt-2">
               Founded by {club.founderName} · {club.category}
             </p>
@@ -292,6 +312,30 @@ export function ClubDetail() {
               <Users className="h-3 w-3 mr-1" />
               {getClubMemberCount(club)} members
             </Badge>
+            {currentUser.role === 'founder' && (
+              <>
+                <Button asChild variant="outline" className="w-full sm:min-w-[13rem]">
+                  <Link to={`/clubs/${club.id}/members`}>
+                    <Users className="h-4 w-4" />
+                    Show members
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full sm:min-w-[13rem]">
+                  <Link to={`/clubs/${club.id}/participation`}>
+                    View Participation Overview
+                  </Link>
+                </Button>
+              </>
+            )}
+            {isMember && (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span>
+                  You have joined <strong>{joinedCount}</strong>{' '}
+                  {joinedCount === 1 ? 'class' : 'classes'}
+                </span>
+              </div>
+            )}
             <ClubJoinButton clubId={club.id} className="w-full sm:min-w-[13rem]" />
           </div>
         </div>

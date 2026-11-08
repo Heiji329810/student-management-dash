@@ -1,16 +1,21 @@
+import { useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from './ThemeProvider';
 import { NavSearch } from './NavSearch';
-import { Users, Home, User, Moon, Sun, LogOut, ClipboardList, PlusCircle, CalendarCog } from 'lucide-react';
+import { NotificationBell } from './NotificationBell';
+import { Users, Home, User, Moon, Sun, LogOut, ClipboardList, PlusCircle, CalendarCog, Star, Languages, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/lib/language';
 
 export function Layout() {
   const location = useLocation();
-  const { currentUser, logout } = useApp();
+  const { currentUser, clubs, logout } = useApp();
   const { theme, toggleTheme } = useTheme();
+  const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -21,70 +26,101 @@ export function Layout() {
     return null; // ProtectedRoute 会处理重定向
   }
 
+  const hasOwnedClubs = clubs.some((club) => club.founderId === currentUser.id);
+
   const navigation = [
-    { name: 'Home', href: '/', icon: Home },
-    { name: 'Clubs & Organizations', href: '/clubs', icon: Users },
+    { name: t('home'), href: '/', icon: Home },
+    { name: t('clubs'), href: '/clubs', icon: Users },
     ...(currentUser.role === 'student'
       ? [
-          { name: 'My Registrations', href: '/registrations', icon: ClipboardList },
-          { name: 'Create a Club', href: '/create-club', icon: PlusCircle },
-          { name: 'Manage Clubs and Activities', href: '/manage', icon: CalendarCog },
+          { name: t('registrations'), href: '/registrations', icon: ClipboardList },
+          { name: t('createClub'), href: '/create-club', icon: PlusCircle },
+          ...(hasOwnedClubs
+            ? [{ name: t('manageClubs'), href: '/manage', icon: CalendarCog }]
+            : []),
+          { name: t('rateClub'), href: '/rate-my-club', icon: Star },
         ]
       : []),
     ...(currentUser.role === 'founder'
-      ? [{ name: 'My Organizations', href: '/founder', icon: User }]
+      ? [
+          { name: t('organizeEvents'), href: '/founder', icon: User },
+          { name: t('studentCouncil'), href: '/student-council', icon: Users },
+        ]
       : []),
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="flex min-h-screen bg-background">
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Header */}
         <header className="border-b border-border bg-background sticky top-0 z-40">
-          <div className="container mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Student Management Dashboard
+          <div className="mx-auto w-full px-4 py-3 sm:px-6 sm:py-4">
+            <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">
+                  {t('dashboardTitle')}
                 </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Welcome back, {currentUser.name}
+                <p className="mt-1 truncate text-sm text-muted-foreground">
+                  {t('welcomeBack')}, {currentUser.name}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
                 <NavSearch />
+                <NotificationBell />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleLanguage}
+                  className="gap-2 px-2 sm:px-3"
+                  aria-label={t('switchLanguage')}
+                >
+                  <Languages className="h-4 w-4" />
+                  {language === 'en' ? '中文' : 'EN'}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={toggleTheme}
-                  className="gap-2"
-                  aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                  className="gap-2 px-2 sm:px-3"
+                  aria-label={theme === 'dark' ? t('switchLight') : t('switchDark')}
                 >
                   {theme === 'dark' ? (
                     <>
                       <Sun className="h-4 w-4" />
-                      Light
+                      <span className="hidden sm:inline">{t('light')}</span>
                     </>
                   ) : (
                     <>
                       <Moon className="h-4 w-4" />
-                      Dark
+                      <span className="hidden sm:inline">{t('dark')}</span>
                     </>
                   )}
                 </Button>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50">
+                <div className="flex h-9 items-center gap-2 rounded-md bg-muted/50 px-2 sm:px-3">
                   <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                  <span className="text-sm font-medium capitalize">{currentUser.role}</span>
+                  <span className="hidden text-sm font-medium sm:inline">
+                    {currentUser.role === 'founder' ? t('teacher') : t('student')}
+                  </span>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleLogout}
-                  className="gap-2"
+                  className="gap-2 px-2 sm:px-3"
+                  aria-label={t('logout')}
                 >
                   <LogOut className="h-4 w-4" />
-                  登出
+                  <span className="hidden lg:inline">{t('logout')}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="xl:hidden"
+                  onClick={() => setMobileNavigationOpen(true)}
+                  aria-label={t('navigation')}
+                >
+                  <Menu className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -93,18 +129,18 @@ export function Layout() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-auto">
-          <div className="container mx-auto px-6 py-8">
+          <div className="mx-auto w-full px-4 py-6 sm:px-6 sm:py-8">
             <Outlet />
           </div>
         </main>
       </div>
 
       {/* Right Sidebar Navigation */}
-      <aside className="w-64 border-l border-border bg-background sticky top-0 h-screen overflow-y-auto">
+      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 overflow-y-auto border-l border-border bg-background xl:block">
         <div className="p-6">
           <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-1">Navigation</h2>
-            <p className="text-xs text-muted-foreground">Quick access menu</p>
+            <h2 className="text-lg font-semibold mb-1">{t('navigation')}</h2>
+            <p className="text-xs text-muted-foreground">{t('quickAccess')}</p>
           </div>
           
           <nav className="space-y-2">
@@ -125,7 +161,7 @@ export function Layout() {
                     )}
                   >
                     <Icon className={cn('h-5 w-5', isActive && 'text-primary-foreground')} />
-                    <span className="font-medium">{item.name}</span>
+                    <span className="min-w-0 break-words font-medium">{item.name}</span>
                   </div>
                 </Link>
               );
@@ -136,7 +172,7 @@ export function Layout() {
             <div className="space-y-4">
               <div className="px-4">
                 <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">
-                  账户
+                  {t('account')}
                 </p>
                 <div className="space-y-2">
                   <div className="px-3 py-2 rounded-md bg-muted/50">
@@ -150,7 +186,7 @@ export function Layout() {
                     className="w-full gap-2"
                   >
                     <LogOut className="h-4 w-4" />
-                    登出
+                    {t('logout')}
                   </Button>
                 </div>
               </div>
@@ -158,6 +194,73 @@ export function Layout() {
           </div>
         </div>
       </aside>
+
+      {mobileNavigationOpen && (
+        <div className="fixed inset-0 z-50 xl:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileNavigationOpen(false)}
+            aria-label="Close navigation"
+          />
+          <aside className="absolute right-0 top-0 h-full w-80 max-w-[88vw] overflow-y-auto border-l border-border bg-background shadow-2xl">
+            <div className="p-4 sm:p-6">
+              <div className="mb-6 flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">{t('navigation')}</h2>
+                  <p className="text-xs text-muted-foreground">{t('quickAccess')}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileNavigationOpen(false)}
+                  aria-label="Close navigation"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <nav className="space-y-2">
+                {navigation.map((item) => {
+                  const Icon = item.icon;
+                  const isActive =
+                    item.href === '/manage'
+                      ? location.pathname.startsWith('/manage')
+                      : location.pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={() => setMobileNavigationOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg px-4 py-3 transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      )}
+                    >
+                      <Icon className="h-5 w-5 shrink-0" />
+                      <span className="min-w-0 break-words font-medium">{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-8 border-t pt-6">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  {t('account')}
+                </p>
+                <div className="mt-3 rounded-md bg-muted/50 px-3 py-2">
+                  <p className="truncate text-sm font-medium">{currentUser.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {currentUser.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
