@@ -1,0 +1,11 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "executablePath": "/usr/bin/chromium",
+      "headless": false,
+      "slowMo": 350
+    },
+    "contextOptions": { "viewport": null }
+  }
+}
