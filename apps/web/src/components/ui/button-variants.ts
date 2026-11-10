@@ -34,4 +34,3 @@ export const buttonVariants = cva(
     },
   }
 )
-

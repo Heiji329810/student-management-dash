@@ -106,4 +106,5 @@ rendered UI in the original frontend. Election file/video upload fields return42
 a future upload UI/storage workflow is needed. Whole-dataset snapshots and serialized
 write transactions suit this local app; larger deployments need scoped queries/writes.
 LAN login/data/logout was verified from this host; another physical device was not observed.
-No public deployment, commit or push was performed.
+The browser verification phase did not publish or deploy the app. Consult Git
+history for subsequent source publication; no public deployment was verified.

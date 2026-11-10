@@ -31,3 +31,20 @@ output/
 playwright-report/
 test-results/
 *.tsbuildinfo
+
+# Private data, account exports and runtime uploads (schema migrations stay tracked)
+/uploads/
+/screenshots/
+/backups/
+/private/
+*.dump
+*.backup
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+.pgpass
+*.pem
+*.key

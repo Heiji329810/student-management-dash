@@ -17,4 +17,3 @@ export function useManagedClub(): {
 
   return { club, clubId, currentUser, isStudent, isOwner };
 }
-

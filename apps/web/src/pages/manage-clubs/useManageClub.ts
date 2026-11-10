@@ -15,4 +15,3 @@ export function useManageClub(): {
 
   return { club, clubId, currentUser, isOwner };
 }
-

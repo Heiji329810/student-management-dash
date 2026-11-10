@@ -71,8 +71,19 @@ the password and sends JSON to the account command through stdin. No default
 password is shipped and passwords never appear in command arguments.
 The first teacher provisioning automatically initializes the School Official Events
 and Student Council organizations. `npm run db:initialize` repairs either missing
-organization idempotently, preserving existing clubs. No sample students, events,
-passwords or secrets are committed.
+organization idempotently, preserving existing clubs. No demo account passwords
+or secrets are committed. Demo and browser setup scripts generate
+random passwords for fictional accounts and store them only in ignored local files;
+the integration suite's fixed password is exclusively a disposable test fixture.
+
+## Repository privacy
+
+Commit source, migrations, shared contracts and project documentation only. Keep
+`.env` variants (except the placeholder `.env.example`), `.local/` credentials and
+database files, uploads, screenshots, browser traces/reports, and build output out
+of Git. The ignore rules cover the standard locations; review `git status` before
+adding files from any other location. Never commit real student data or account
+exports. SQL files under `apps/server/drizzle` are schema migrations, not data dumps.
 
 ## Commands
 

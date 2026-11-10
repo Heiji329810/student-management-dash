@@ -1,8 +1,8 @@
 # CC handoff
 
-Repository: `Heiji329810/student-management-dash`, cloned to
-`/home/keesee/Projects/student-management-dash`. Work is uncommitted; nothing was
-pushed or deployed. Original tracked source remains recoverable through Git.
+Repository: `Heiji329810/student-management-dash`. Implementation and documentation
+are versioned together; consult Git history for publication state. Original tracked
+source remains recoverable through Git. No public deployment was performed.
 The source-level audit is [coverage-review.md](coverage-review.md); it explicitly
 records an earlier implementation snapshot. This document describes the final
 implementation and verification, and supersedes that snapshot's open findings.
@@ -201,6 +201,21 @@ client filtering/pagination; named ratings; aggregate write architecture; dorman
 screens and missing election upload flow. There is no automatic import of untrusted
 legacy browser-local data and no destructive `studentCouncilYearsReset` startup behavior.
 Original upstream demo data was removed as a runtime dependency.
+
+### Publication review (2026-11-10)
+
+Re-ran `npm run build`, `npm run lint`, and `npm test`: all passed, including
+20 backend/contract tests and 12 client session-policy tests. Browser evidence
+above remains from the earlier verification; publication review did not rerun
+browser workflows or reset the demo/browser fixture databases. Build output has
+nonblocking dependency/deprecation and chunk-size warnings.
+
+Reviewed tracked files and outgoing Git blobs for private values. Environment
+files, generated demo/browser account credentials, local PostgreSQL data/binaries,
+screenshots, traces, reports and build artifacts remain ignored. `.env.example`
+contains placeholders; the integration password is a disposable test fixture.
+Ignore rules additionally exclude runtime uploads, private exports, database dumps
+and common credential-key files. Presentation assets are maintained separately.
 
 ## Final verification and artifacts
 
