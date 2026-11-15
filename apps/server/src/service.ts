@@ -1,3 +1,4 @@
+import { MIN_PRESENT_SESSIONS_TO_RATE, countPresentSessions } from "@student-dash/shared/clubRatings";
 import { isActivityPast } from "@student-dash/shared/activities";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -5,6 +6,7 @@ import type { CommandName } from "@student-dash/shared/contracts";
 import { commandSchemas } from "@student-dash/shared/contracts";
 import type { AppState } from "@student-dash/shared/state";
 import type { User } from "@student-dash/shared/types";
+import { canModerateJournalComment, journalCommentClub } from "./commentModeration.js";
 import { createDomain } from "./domain.js";
 import { HttpError } from "./errors.js";
 import { media } from "./schema.js";
@@ -65,6 +67,8 @@ export async function executeCommand(
       "castClubElectionVote",
       "submitEventElectionApplication",
       "saveClubRating",
+      "reportClubRatingComment",
+      "reportJournalThreadComment",
     ].includes(command) &&
     user.role !== "student"
   )
@@ -222,6 +226,49 @@ export async function executeCommand(
       )
     )
       throw new HttpError(422, "Unknown student");
+  }
+  if (command === "reportClubRatingComment") {
+    const target = state.clubRatings.find(r => r.clubId === args[0] && r.id === args[1]);
+    const club = state.clubs.find(c => c.id === args[0]);
+    if (!target || !club) throw new HttpError(404, "Club rating not found");
+    const student = state.students.find(s => s.studentId === user.studentId);
+    const eligible = user.role === "student" && !!student && club.members.includes(student.id)
+      && countPresentSessions(state.clubAttendance, club.id, student.id) >= MIN_PRESENT_SESSIONS_TO_RATE;
+    if (target.commentUnpublished || target.userId === user.id || (eligible && club.founderId !== user.id && !state.clubRatings.some(r => r.clubId === club.id && r.userId === user.id)))
+      throw new HttpError(403, "Comment is not visible to this account");
+    if (!users.some(u => u.id === target.userId && u.role === "student"))
+      throw new HttpError(403, "Only student comments can be reported");
+    if (!target.comment.trim() || target.updatedAt !== (args[2] as {ratingUpdatedAt: string}).ratingUpdatedAt)
+      throw new HttpError(409, "Comment changed. Reload before reporting.");
+    if (state.clubCommentReports.some(r => r.ratingId === target.id && r.reporterUserId === user.id && r.ratingUpdatedAt === target.updatedAt))
+      throw new HttpError(409, "You already reported this comment version");
+  }
+  if (["deleteClubRatingComment", "setClubCommentPublished", "setClubCommentPinned", "dismissClubCommentReport"].includes(command)) {
+    const report = command === "dismissClubCommentReport" ? state.clubCommentReports.find(r => r.id === args[0]) : undefined;
+    if (command === "dismissClubCommentReport" && !report) throw new HttpError(404, "Report not found");
+    if (report?.source === "journal") {
+      const comment = state.journalThreadComments.find(c => c.id === report.commentId);
+      if (!comment || !journalCommentClub(state, comment) || comment.clubId !== report.clubId || comment.activityId !== report.activityId)
+        throw new HttpError(404, "Journal comment not found");
+    }
+    const clubId = report?.clubId ?? args[0];
+    const club = state.clubs.find(c => c.id === clubId);
+    if (!club) throw new HttpError(404, "Club not found");
+    if (user.role !== "founder" && club.founderId !== user.id)
+      throw new HttpError(403, "Club leader or teacher access required");
+    if (!report && !state.clubRatings.some(r => r.clubId === clubId && r.id === args[1]))
+      throw new HttpError(404, "Club rating not found");
+  }
+  if (["deleteJournalCommentText", "setJournalCommentPublished", "setJournalCommentPinned", "reportJournalThreadComment"].includes(command)) {
+    const target = state.journalThreadComments.find(c => c.id === args[0]);
+    if (!target || !journalCommentClub(state, target)) throw new HttpError(404, "Journal comment not found");
+    if (command === "reportJournalThreadComment") {
+      if (target.userId === user.id || target.commentUnpublished || target.commentDeleted || !target.body.trim())
+        throw new HttpError(403, "Comment is not visible to this account");
+      if (!users.some(u => u.id === target.userId && u.role === "student")) throw new HttpError(403, "Only student comments can be reported");
+      if (state.clubCommentReports.some(r => r.source === "journal" && r.commentId === target.id && r.reporterUserId === user.id))
+        throw new HttpError(409, "You already reported this comment version");
+    } else if (!canModerateJournalComment(state, user, target)) throw new HttpError(403, "Club leader or teacher access required");
   }
   if (command === "deleteJournalThreadComment") {
     const target = state.journalThreadComments.find((c) => c.id === args[0]);

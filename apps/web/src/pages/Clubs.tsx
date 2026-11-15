@@ -100,7 +100,7 @@ export function Clubs() {
         <h2 className="text-3xl font-bold tracking-tight">Clubs & Organizations</h2>
         <p className="text-muted-foreground mt-2">
           {isStudent
-            ? 'Browse clubs and join the ones you are interested in'
+            ? 'Check for some fun clubs and feel free to join in any club or activities you want!'
             : 'Browse all student clubs and their events'}
         </p>
       </div>

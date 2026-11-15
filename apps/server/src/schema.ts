@@ -265,6 +265,14 @@ export const clubRatings = pgTable(
     ),
   ],
 );
+export const clubCommentReports = pgTable("club_comment_reports", {
+  id: text().primaryKey(),
+  data: jsonb().$type<T.ClubCommentReport>().notNull(),
+}, (t) => [uniqueIndex("club_comment_report_unique").on(
+  sql`(${t.data}->>'ratingId')`,
+  sql`(${t.data}->>'reporterUserId')`,
+  sql`(${t.data}->>'ratingUpdatedAt')`,
+)]);
 export const notifications = pgTable(
   "notifications",
   {

@@ -41,6 +41,7 @@ export function Layout() {
       : []),
     ...(currentUser.role === 'founder'
       ? [
+          { name: t('rateClub'), href: '/rate-my-club', icon: Star },
           { name: t('organizeEvents'), href: '/founder', icon: User },
           { name: t('studentCouncil'), href: '/student-council', icon: Users },
         ]

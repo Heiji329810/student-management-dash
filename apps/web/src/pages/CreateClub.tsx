@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import {
+  CLUB_INTRODUCTION_MAX_CHARACTERS,
+  CLUB_INTRODUCTION_LIMIT_ERROR,
+  countClubIntroductionCharacters,
+} from '@student-dash/shared/clubIntroduction';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/useApp';
 import { CLUB_CATEGORIES } from '@/data/categories';
@@ -25,15 +30,10 @@ import { Check, CheckCircle2, Plus, School, Trash2, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const MAX_FOUNDERS = 5;
-const MAX_WORDS = 100;
 
 const CREATABLE_CATEGORIES = CLUB_CATEGORIES.filter(
   (cat) => cat !== 'School Official Events'
 );
-
-function countWords(text: string): number {
-  return text.trim() ? text.trim().split(/\s+/).length : 0;
-}
 
 export function CreateClub() {
   const { currentUser, clubApplications, submitClubApplication } = useApp();
@@ -96,7 +96,7 @@ export function CreateClub() {
     );
   }
 
-  const wordCount = countWords(description);
+  const characterCount = countClubIntroductionCharacters(description);
   const myApplications = clubApplications.filter(
     (application) => application.applicantUserId === currentUser.id
   );
@@ -142,8 +142,8 @@ export function CreateClub() {
       setError('Please enter a brief introduction.');
       return;
     }
-    if (wordCount > MAX_WORDS) {
-      setError(`Introduction must be no more than ${MAX_WORDS} words.`);
+    if (characterCount > CLUB_INTRODUCTION_MAX_CHARACTERS) {
+      setError(CLUB_INTRODUCTION_LIMIT_ERROR);
       return;
     }
     if (wantsSchoolOfficial && !managingTeacherName.trim()) {
@@ -392,20 +392,25 @@ export function CreateClub() {
                 <span
                   className={cn(
                     'text-xs',
-                    wordCount > MAX_WORDS ? 'text-destructive' : 'text-muted-foreground'
+                    characterCount > CLUB_INTRODUCTION_MAX_CHARACTERS ? 'text-destructive' : 'text-muted-foreground'
                   )}
                 >
-                  {wordCount} / {MAX_WORDS} words
+                  {`${characterCount} / ${CLUB_INTRODUCTION_MAX_CHARACTERS} characters`}
                 </span>
               </div>
               <textarea
                 id="description"
-                placeholder="Describe your club in no more than 100 words..."
+                placeholder="Describe your club in no more than 100 characters..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                aria-describedby="club-introduction-help"
+                aria-invalid={characterCount > CLUB_INTRODUCTION_MAX_CHARACTERS}
                 rows={5}
                 className="border-border w-full min-w-0 rounded-md border bg-background px-3 py-2 text-base text-foreground shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm resize-y"
               />
+              <p id="club-introduction-help" className="text-xs text-muted-foreground">
+                Maximum 100 characters, including spaces.
+              </p>
             </div>
 
             <div className="flex gap-3 pt-2">

@@ -87,12 +87,12 @@ export function groupThreadComments(comments: JournalThreadComment[]) {
     if (parentId === null) {
       group.sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          Number(!!b.commentPinned) - Number(!!a.commentPinned) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || a.id.localeCompare(b.id),
       );
     } else {
       group.sort(
         (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          Number(!!b.commentPinned) - Number(!!a.commentPinned) || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id.localeCompare(b.id),
       );
     }
   }

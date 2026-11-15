@@ -23,3 +23,17 @@ test('date-only long-term final day uses shared closing policy',()=>{
  const end=`${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
  assert.equal(isActivityPast({id:'future',clubId:'club',title:'Long',description:'Long-term',date:'2020-01-01',endDate:end,durationType:'long-term',location:'Room',registeredStudents:[]}),false);
 });
+
+
+test('club introduction uses a 100 Unicode character limit including spaces', () => {
+ const application = {founderNames:['Owner'],name:'Club',category:'Science',wantsSchoolOfficial:false};
+ for (const description of ['中'.repeat(100), 'a'.repeat(100), '😀'.repeat(100), 'a '.repeat(50)]) {
+  assert.ok(commandSchemas.submitClubApplication.safeParse([{...application,description}]).success);
+ }
+ for (const description of ['中'.repeat(101), 'a'.repeat(101), '😀'.repeat(101), 'a '.repeat(50)+'a', ' '+ 'a'.repeat(100), 'a'.repeat(100)+' ']) {
+  const result = commandSchemas.submitClubApplication.safeParse([{...application,description}]);
+  assert.equal(result.success, false);
+  if (!result.success) assert.ok(result.error.issues.some(issue => issue.message === 'Introduction must be no more than 100 characters.'));
+ }
+ assert.equal(commandSchemas.submitClubApplication.safeParse([{...application,description:'   '}]).success, false);
+});

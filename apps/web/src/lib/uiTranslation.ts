@@ -1,4 +1,53 @@
 const ZH_TRANSLATIONS: Record<string, string> = {
+  "Journal comment / reply": "日志评论 / 回复",
+  "Comment unpublished.": "评论已取消发布。",
+  "This cannot be undone. Rating scores and replies will remain.": "此操作无法撤销。评分和回复将保留。",
+
+  "Unpublish comment": "取消发布评论",
+  "Republish comment": "重新发布评论",
+  "Pin comment": "置顶评论",
+  "Unpin comment": "取消置顶评论",
+  "Pinned": "已置顶",
+  "Unpublished · visible to moderators only": "未发布 · 仅审核人员可见",
+  "Comment republished.": "评论已重新发布。",
+  "Comment unpublished. Rating scores remain unchanged.": "评论已取消发布。评分保持不变。",
+  "Comment pinned.": "评论已置顶。",
+  "Comment unpinned.": "评论已取消置顶。",
+  "Unable to moderate this comment. Please reload and try again.": "无法审核此评论。请刷新后重试。",
+  "A club leader or teacher will review your report. Reporting does not hide or delete the comment or change rating scores.": "社团负责人或教师将审核您的举报。举报不会隐藏或删除评论，也不会更改评分。",
+  "Report submitted for moderator review. The comment and rating scores remain unchanged.": "举报已提交，等待审核。评论和评分保持不变。",
+
+  "Comment actions": "评论操作",
+  "Reported": "已举报",
+  "This cannot be undone. The student's rating scores will remain.": "此操作无法撤销。学生的评分将被保留。",
+  "Report inappropriate comment": "举报不当评论",
+  "Report inappropriate comment?": "举报不当评论？",
+  "A teacher will review your report. Reporting does not hide or delete the comment or change rating scores.": "教师将审核您的举报。举报不会隐藏或删除评论，也不会更改评分。",
+  "Comment author": "评论作者",
+  "Reason for reporting": "举报原因",
+  "Explain why this comment is inappropriate...": "请说明这条评论为何不当……",
+  "Maximum 500 characters.": "最多 500 个字符。",
+  "Submit report": "提交举报",
+  "Submitting report...": "正在提交举报……",
+  "Comment reported": "已举报此评论",
+  "Report submitted for teacher review. The comment and rating scores remain unchanged.": "举报已提交，等待教师审核。评论和评分保持不变。",
+  "Unable to report this comment. It may have changed or already been reported. Please reload and try again.": "无法举报此评论。评论可能已更改或已被举报。请刷新后重试。",
+  "Reported comments": "被举报的评论",
+  "Reported by": "举报人",
+  "Dismiss report": "驳回举报",
+  "Dismissing...": "正在驳回……",
+  "Report dismissed.": "举报已驳回。",
+  "Unable to dismiss this report. Please reload and try again.": "无法驳回此举报。请刷新后重试。",
+  "This comment has changed since it was reported. Review the current comment before deleting.": "此评论在举报后已更改。请在删除前审核当前评论。",
+  "Report review queue": "举报审核队列",
+  "Review reports": "审核举报",
+  "No reports awaiting review.": "暂无待审核的举报。",
+  "Delete comment": "删除评论",
+  "Delete this comment?": "删除这条评论？",
+  "Deleting...": "正在删除……",
+  "Comment deleted.": "评论已删除。",
+  "Unable to delete this comment. Please try again.": "无法删除此评论。请重试。",
+
   Dashboard: '控制面板',
   "Here's your overview.": '这是您的概览。',
   'Total Clubs': '社团总数',
@@ -104,8 +153,10 @@ const ZH_TRANSLATIONS: Record<string, string> = {
   'If a teacher approves this request, the club will be established as a School Official Club.':
     '如果教师批准此申请，该社团将成立为学校官方社团。',
   'Brief Introduction': '简要介绍',
-  'Describe your club in no more than 100 words...':
-    '请用不超过 100 个英文单词介绍您的社团……',
+  'Describe your club in no more than 100 characters...':
+    '请用不超过 100 个字符介绍您的社团……',
+  'Maximum 100 characters, including spaces.': '最多 100 个字符，包括空格。',
+  'Introduction must be no more than 100 characters.': '介绍不得超过 100 个字符。',
   'Submit Application': '提交申请',
   Cancel: '取消',
   Close: '关闭',
@@ -472,7 +523,8 @@ const ZH_TRANSLATIONS: Record<string, string> = {
   'Are you sure you want to unregister from this activity?':
     '确定要取消此活动的报名吗？',
   'Confirm Unregister': '确认取消报名',
-  'Upcoming events first, then past events': '即将开始的活动优先，其次为已结束的活动',
+  'Check your accomplishments and future activities waiting for you!':
+    '回顾你的精彩成果，探索即将到来的活动！',
   "You haven't registered for any activities. Browse clubs to find events you'd like to join.":
     '您尚未报名任何活动。请浏览社团并选择想参加的活动。',
   'Total Registrations': '报名总数',
@@ -532,8 +584,8 @@ const ZH_TRANSLATIONS: Record<string, string> = {
   'You must become a member of this club before you can rate it.':
     '加入此社团后才能进行评价。',
   'Certified School Official Club': '认证学校官方社团',
-  'Browse clubs and join the ones you are interested in':
-    '浏览社团并加入您感兴趣的组织',
+  'Check for some fun clubs and feel free to join in any club or activities you want!':
+    '探索有趣的社团，欢迎加入你喜欢的社团或参加感兴趣的活动！',
   'Browse all student clubs and their events': '浏览所有学生社团及其活动',
   'No upcoming registered events.': '暂无已报名的即将开始活动。',
   'No past registered events.': '暂无已报名的历史活动。',
@@ -669,8 +721,8 @@ const ZH_TRANSLATIONS: Record<string, string> = {
   'This choice cannot be changed.': '此选择无法更改。',
   'Confirm vote': '确认投票',
   'Go back': '返回',
-  'Explore club rankings, read student feedback, and rate clubs you actively attend.':
-    '查看社团排名、阅读学生反馈，并评价您积极参与的社团。',
+  'Explore club rankings, view student comments, and rate clubs you actively attend.':
+    '查看社团排名、浏览学生评论，并评价您积极参与的社团。',
   'Club Ranking': '社团排名',
   'Ranked by students\' overall scores': '根据学生综合评分排名',
   'School Official Club': '学校官方社团',
@@ -679,8 +731,8 @@ const ZH_TRANSLATIONS: Record<string, string> = {
   'classes present': '次出席',
   'Your rating has been saved. Community ratings are now shown below.':
     '您的评分已保存，社区评分现已显示在下方。',
-  'Feedback submitted by other eligible club members':
-    '其他符合条件的社团成员提交的反馈',
+  'Feedback submitted by club members':
+    '社团成员提交的反馈',
   'Submit your rating to view other students\' ratings and comments.':
     '提交评分后即可查看其他学生的评分和评论。',
   'Use the same event details available to student club founders.':
@@ -829,6 +881,7 @@ function translateDynamicText(text: string): string {
     [/^Total (.+)$/, (_, score) => `总分 ${score}`],
     [/^Founder (\d+) name$/, (_, number) => `创始人 ${number} 姓名`],
     [/^Remove founder (\d+)$/, (_, number) => `移除创始人 ${number}`],
+    [/^(\d+) \/ (\d+) characters$/, (_, count, maximum) => `${count} / ${maximum} 个字符`],
     [/^(\d+) \/ (\d+) words$/, (_, count, maximum) => `${count} / ${maximum} 个单词`],
     [/^Submitted (.+)$/, (_, date) => `提交于 ${date}`],
     [/^Teacher comment: (.+)$/, (_, comment) => `教师意见：${comment}`],

@@ -3,7 +3,7 @@
 Verified 2026-11-10 using the installed official curated Playwright CLI skill:
 `/run/user/1000/omarchy-aicontrol/native-codex/skills/playwright/SKILL.md`.
 This was a sequence of actual rendered browser workflows, not an invented count of
-Playwright test-runner specs. The backend integration suite separately covers all31
+Playwright test-runner specs. The backend integration suite separately covers all32
 commands, including dormant services that have no rendered screens.
 
 ## Isolation and browser ownership
@@ -108,3 +108,8 @@ write transactions suit this local app; larger deployments need scoped queries/w
 LAN login/data/logout was verified from this host; another physical device was not observed.
 The browser verification phase did not publish or deploy the app. Consult Git
 history for subsequent source publication; no public deployment was verified.
+
+
+### Teacher Rate My Club verification — 2026-11-15
+
+See [teacher moderation checks](RATE-MY-CLUB-MODERATION.md). A separate hidden CLI browser verified confirmation cancellation, comment deletion with scores preserved after reload, and the existing student update flow on the isolated browser database. The persistent demo was checked without rating/comment fixture writes or resets.

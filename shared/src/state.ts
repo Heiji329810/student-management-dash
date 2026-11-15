@@ -7,6 +7,7 @@ import type {
   ClubElection,
   ClubElectionVote,
   ClubRatingRecord,
+  ClubCommentReport,
   ElectionApplicantMessage,
   ElectionCandidateScore,
   ElectionScorerInvite,
@@ -37,6 +38,7 @@ export interface AppState {
   journalLikes: JournalLike[];
   clubAttendance: ClubAttendanceEntry[];
   clubRatings: ClubRatingRecord[];
+  clubCommentReports: ClubCommentReport[];
   notifications: NotificationRecord[];
   readNotificationIds: Record<string, string[]>;
 }
@@ -59,6 +61,7 @@ export const emptyState = (): AppState => ({
   journalLikes: [],
   clubAttendance: [],
   clubRatings: [],
+  clubCommentReports: [],
   notifications: [],
   readNotificationIds: {},
 });

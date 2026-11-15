@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  CLUB_INTRODUCTION_MAX_CHARACTERS,
+  CLUB_INTRODUCTION_LIMIT_ERROR,
+  countClubIntroductionCharacters,
+} from "./clubIntroduction.js";
 const id = z.string().trim().min(1).max(200);
 const text = z.string().trim().min(1).max(1000);
 const ids = z
@@ -83,10 +88,12 @@ const clubInput = z
       ),
     description: z
       .string()
-      .trim()
-      .min(1)
-      .max(30000)
-      .refine((v) => v.split(/\s+/).length <= 100, "Maximum 100 words"),
+      .refine((v) => !!v.trim(), "Please enter a brief introduction.")
+      .refine(
+        (v) => countClubIntroductionCharacters(v) <= CLUB_INTRODUCTION_MAX_CHARACTERS,
+        CLUB_INTRODUCTION_LIMIT_ERROR,
+      )
+      .transform((v) => v.trim()),
     wantsSchoolOfficial: z.boolean(),
     managingTeacherName: z.string().max(200).optional(),
   })
@@ -207,6 +214,14 @@ export const commandSchemas = {
       })
       .strict(),
   ]),
+  deleteClubRatingComment: z.tuple([id, id]),
+  setClubCommentPublished: z.tuple([id, id, z.boolean()]),
+  setClubCommentPinned: z.tuple([id, id, z.boolean()]),
+  reportClubRatingComment: z.tuple([id, id, z.object({
+    reason: z.string().trim().min(1).max(500),
+    ratingUpdatedAt: z.iso.datetime(),
+  }).strict()]),
+  dismissClubCommentReport: z.tuple([id]),
   markNotificationRead: z.tuple([id]),
   saveActivityJournal: z.tuple([
     id,
@@ -238,6 +253,10 @@ export const commandSchemas = {
       .strict(),
   ]),
   deleteJournalThreadComment: z.tuple([id]),
+  deleteJournalCommentText: z.tuple([id]),
+  setJournalCommentPublished: z.tuple([id, z.boolean()]),
+  setJournalCommentPinned: z.tuple([id, z.boolean()]),
+  reportJournalThreadComment: z.tuple([id, z.object({reason: z.string().trim().min(1).max(500)}).strict()]),
   toggleJournalLike: z.tuple([id, id]),
 } as const;
 export type CommandName = keyof typeof commandSchemas;

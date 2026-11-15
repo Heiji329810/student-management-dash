@@ -1,3 +1,4 @@
+import { JournalCommentControls } from '@/components/journal/JournalCommentControls';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -81,7 +82,7 @@ export function CommentThreadItem({
   const isOwner = currentUserId === comment.userId;
 
   return (
-    <div className={depth > 0 ? 'mt-3' : undefined}>
+    <div id={`comment-${comment.id}`} data-comment-id={comment.id} className={depth > 0 ? 'mt-3' : undefined}>
       <div className="flex gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
           {getInitials(comment.userName)}
@@ -105,7 +106,7 @@ export function CommentThreadItem({
           )}
 
           <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
-            {comment.body}
+            {comment.commentDeleted ? 'Comment deleted.' : comment.commentUnpublished && !comment.body ? 'Comment unpublished.' : comment.body}
           </p>
 
           {comment.rating && comment.rating > 0 && (
@@ -130,6 +131,8 @@ export function CommentThreadItem({
               </button>
             )}
           </div>
+
+          <JournalCommentControls comment={comment} />
 
           {replyOpen && (
             <form onSubmit={handleReplySubmit} className="mt-2 space-y-2">

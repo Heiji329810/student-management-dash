@@ -21,6 +21,7 @@ const documents = {
   journalLikes: S.journalLikes,
   clubAttendance: S.clubAttendance,
   clubRatings: S.clubRatings,
+  clubCommentReports: S.clubCommentReports,
   notifications: S.notifications,
 };
 export async function lock(db: Database) {

@@ -46,7 +46,7 @@ screenshots, traces and browser state are ignored. Never add them to Git.
 ## Service and persistence design
 
 `GET /api/state` returns a session-specific, Zod-validated consistent snapshot.
-`POST /api/commands` takes `{expectedUserId,command,args}` validated by one of 31 shared strict
+`POST /api/commands` takes `{expectedUserId,command,args}` validated by one of 32 shared strict
 schemas. Each command is a business operation, not a browser-supplied state patch.
 The server derives actor identity from Better Auth, rejects a stale tab whose
 expectedUserId differs before any mutation, and applies role/resource guards
@@ -188,7 +188,7 @@ verdicts, not edit-form draft persistence.
 
 ## Implementation review resolutions
 
-Resolved: backend identity/auth; all31 action validation; shared response validation;
+Resolved: backend identity/auth; all32 action validation; shared response validation;
 missing identity errors; provisioning cleanup/race; normal initialization; independent
 reads; capacity/past guards; canonical attendance; club/activity word limits;
 overposting; journal participant/media checks; notification ownership; soft cancellation;
@@ -249,3 +249,19 @@ Sources checked for implementation:
 [Zod schemas](https://zod.dev/api),
 [Drizzle migrations](https://orm.drizzle.team/docs/migrations),
 [Express async error handling](https://expressjs.com/en/guide/error-handling/).
+
+
+## Teacher Rate My Club moderation (2026-11-15)
+
+Teachers (`role: founder`) now have the same `/rate-my-club` rankings and student feedback view, accessible from navigation and page search. Teachers can confirm deletion of a selected comment through `deleteClubRatingComment(clubId, ratingId)`. This clears only the comment text, retaining the rating record, scores, author, timestamps, rating count and averages. Both service and domain enforce the teacher role; students, including club owners identified by `founderId`, cannot invoke moderation.
+
+Teacher rating submission remains unsupported. Membership and three present check-ins are still required for student ratings, and teacher viewing/moderation never creates attendance or grants student eligibility. Existing journal thread comments are a separate model; their author-only deletion and reply-tree behavior remain unchanged.
+
+See [moderation verification](RATE-MY-CLUB-MODERATION.md) for checks and preview URLs.
+
+Comment reporting and the localhost:5275 bootstrap compatibility fix (2026-11-15): see [COMMENT-REPORTING.md](COMMENT-REPORTING.md) for authenticated reporting/review rules, additive migration 0002, privacy/duplicate safeguards, live API recovery and verification. The sample moderation comment was preserved. Integration tests now create disposable databases instead of truncating an existing test database.
+
+
+### Club leader moderation and journal coverage (2026-11-15)
+
+Current comment moderation now covers Rate My Club and journal comments/replies: owning leaders and teachers can unpublish/republish, confirm text deletion, pin/unpin and review scoped reports. Journal moderator deletion retains numerical ratings and replies; existing author subtree deletion remains separate. Source-labelled queue links resolve to exact items. No new database migration: additive optional JSONB metadata uses the existing report table. All 40 commands covered; 25 backend + 17 client tests, repeatable isolated browser workflow and live5275 role/compatibility/data-preservation checks passed. See `docs/COMMENT-REPORTING.md` and `scripts/verify-comment-moderation.ts`. No reset, commit or push.

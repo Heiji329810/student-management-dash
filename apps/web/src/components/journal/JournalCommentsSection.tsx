@@ -1,3 +1,4 @@
+import { CommentReviewQueue } from '@/components/CommentReviewQueue';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '@/context/useApp';
@@ -118,6 +119,7 @@ export function JournalCommentsSection({ clubId, activityId }: JournalCommentsSe
 
   return (
     <div className="pt-6 mt-12 border-t border-border space-y-8">
+      <CommentReviewQueue clubId={clubId} />
       {/* Likes section */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

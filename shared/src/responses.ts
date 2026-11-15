@@ -380,6 +380,9 @@ export const journalThreadCommentInputSchema = z
   .strict();
 export const journalThreadCommentSchema = z
   .object({
+    commentUnpublished: z.boolean().optional(),
+    commentPinned: z.boolean().optional(),
+    commentDeleted: z.boolean().optional(),
     id: z.string(),
     clubId: z.string(),
     activityId: z.string(),
@@ -409,6 +412,8 @@ export const clubRatingInputSchema = z
 export const clubRatingRecordSchema = z
   .object({
     ...clubRatingInputSchema.shape,
+    commentUnpublished: z.boolean().optional(),
+    commentPinned: z.boolean().optional(),
     id: z.string(),
     clubId: z.string(),
     userId: z.string(),
@@ -417,6 +422,14 @@ export const clubRatingRecordSchema = z
     updatedAt: z.string(),
   })
   .strict();
+export const clubCommentReportSchema = z.object({
+  source: z.literal("journal").optional(), activityId: z.string().optional(), commentId: z.string().optional(),
+  id: z.string(), clubId: z.string(), ratingId: z.string(),
+  reporterUserId: z.string(), reporterName: z.string(), authorName: z.string(),
+  commentSnapshot: z.string(), ratingUpdatedAt: z.string(), reason: z.string(),
+  createdAt: z.string(), status: z.enum(['pending', 'dismissed', 'comment_deleted']),
+  resolvedAt: z.string().optional(), resolvedByUserId: z.string().optional(),
+}).strict();
 export const userSchema = z
   .object({
     id: z.string(),
@@ -445,6 +458,8 @@ export const appStateSchema = z
     journalLikes: z.array(journalLikeSchema),
     clubAttendance: z.array(clubAttendanceEntrySchema),
     clubRatings: z.array(clubRatingRecordSchema),
+    // Additive rollout compatibility: older API processes omit this new collection.
+    clubCommentReports: z.array(clubCommentReportSchema).default([]),
     notifications: z.array(notificationRecordSchema),
     readNotificationIds: z.record(z.string(), z.array(z.string())),
   })

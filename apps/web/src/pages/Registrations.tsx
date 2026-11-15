@@ -333,7 +333,7 @@ export function Registrations() {
       <div className="animate-in fade-in slide-in-from-top-4 duration-500">
         <h2 className="text-3xl font-bold tracking-tight">My Registrations</h2>
         <p className="text-muted-foreground mt-2">
-          Upcoming events first, then past events
+          Check your accomplishments and future activities waiting for you!
         </p>
       </div>
 

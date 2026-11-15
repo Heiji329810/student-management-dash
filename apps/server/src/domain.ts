@@ -1,3 +1,4 @@
+import { canModerateJournalComment, journalCommentClub } from "./commentModeration.js";
 import { isActivityPast } from "@student-dash/shared/activities";
 import { buildActivityFields } from "@student-dash/shared/activityForm";
 import {
@@ -1831,6 +1832,62 @@ export function createDomain(state: AppState, user: User, users: User[]) {
     return true;
   };
 
+  const canModerateClubComments = (clubId: string): boolean => user.role === "founder" || clubs.some(c => c.id === clubId && c.founderId === user.id);
+
+  const reportClubRatingComment = (clubId: string, ratingId: string, input: {reason: string; ratingUpdatedAt: string}): boolean => {
+    if (user.role !== "student") return false;
+    const target = clubRatings.find(r => r.clubId === clubId && r.id === ratingId);
+    if (!target || target.commentUnpublished || !target.comment.trim() || target.updatedAt !== input.ratingUpdatedAt) return false;
+    state.clubCommentReports.push({
+      id: randomUUID(), clubId, ratingId, reporterUserId: user.id, reporterName: user.name,
+      authorName: target.userName, commentSnapshot: target.comment, ratingUpdatedAt: target.updatedAt,
+      reason: input.reason, createdAt: new Date().toISOString(), status: "pending",
+    });
+    return true;
+  };
+  const dismissClubCommentReport = (reportId: string): boolean => {
+    const report = state.clubCommentReports.find(r => r.id === reportId);
+    if (!report || !canModerateClubComments(report.clubId) || report.status !== "pending"
+      || (report.source === "journal" && !state.journalThreadComments.some(c => c.id === report.commentId && c.activityId === report.activityId && c.clubId === report.clubId && canModerateJournalComment(state, user, c)))) return false;
+    report.status = "dismissed";
+    report.resolvedAt = new Date().toISOString();
+    report.resolvedByUserId = user.id;
+    return true;
+  };
+
+  // Moderation removes only the selected comment, preserving the student's scores.
+  const deleteClubRatingComment = (clubId: string, ratingId: string): boolean => {
+    if (!canModerateClubComments(clubId)) return false;
+    const target = clubRatings.find((r) => r.clubId === clubId && r.id === ratingId);
+    if (!target || !target.comment?.trim()) return false;
+    for (const report of state.clubCommentReports.filter(r => r.source !== "journal" && r.ratingId === ratingId && r.status === "pending")) {
+      report.status = "comment_deleted";
+      report.resolvedAt = new Date().toISOString();
+      report.resolvedByUserId = user.id;
+    }
+    setClubRatings((previous) => previous.map((rating) =>
+      rating.clubId === clubId && rating.id === ratingId
+        ? { ...rating, comment: "", commentUnpublished: undefined, commentPinned: undefined }
+        : rating,
+    ));
+    return true;
+  };
+
+  const setClubCommentPublished = (clubId: string, ratingId: string, published: boolean): boolean => {
+    if (!canModerateClubComments(clubId)) return false;
+    const target = clubRatings.find(r => r.clubId === clubId && r.id === ratingId);
+    if (!target?.comment.trim() || !!target.commentUnpublished === !published) return false;
+    target.commentUnpublished = !published;
+    return true;
+  };
+  const setClubCommentPinned = (clubId: string, ratingId: string, pinned: boolean): boolean => {
+    if (!canModerateClubComments(clubId)) return false;
+    const target = clubRatings.find(r => r.clubId === clubId && r.id === ratingId);
+    if (!target?.comment.trim() || !!target.commentPinned === pinned) return false;
+    target.commentPinned = pinned;
+    return true;
+  };
+
   const getMyNotifications = (): NotificationRecord[] => {
     if (!user) return [];
     return notifications
@@ -2018,9 +2075,44 @@ export function createDomain(state: AppState, user: User, users: User[]) {
     if (!target || target.userId !== user.id) return false;
 
     const idsToRemove = collectCommentTreeIds(commentId, journalThreadComments);
+    for (const report of state.clubCommentReports.filter(r => r.source === "journal" && idsToRemove.has(r.commentId ?? "") && r.status === "pending")) {
+      report.status = "comment_deleted"; report.resolvedAt = new Date().toISOString(); report.resolvedByUserId = user.id;
+    }
     setJournalThreadComments((prev) =>
       prev.filter((comment) => !idsToRemove.has(comment.id)),
     );
+    return true;
+  };
+
+  const reportJournalThreadComment = (commentId: string, input: {reason: string}): boolean => {
+    const target = journalThreadComments.find(c => c.id === commentId);
+    if (user.role !== "student" || !target || !journalCommentClub(state, target) || target.userId === user.id || target.commentUnpublished || target.commentDeleted || !target.body.trim()) return false;
+    state.clubCommentReports.push({id: randomUUID(), source: "journal", commentId, activityId: target.activityId,
+      clubId: target.clubId, ratingId: target.id, ratingUpdatedAt: target.createdAt,
+      reporterUserId: user.id, reporterName: user.name, authorName: target.userName,
+      commentSnapshot: target.body, reason: input.reason, createdAt: new Date().toISOString(), status: "pending"});
+    return true;
+  };
+  const setJournalCommentPublished = (commentId: string, published: boolean): boolean => {
+    const target = journalThreadComments.find(c => c.id === commentId);
+    if (!target || !canModerateJournalComment(state, user, target) || !target.body.trim() || target.commentDeleted || !!target.commentUnpublished === !published) return false;
+    target.commentUnpublished = !published;
+    return true;
+  };
+  const setJournalCommentPinned = (commentId: string, pinned: boolean): boolean => {
+    const target = journalThreadComments.find(c => c.id === commentId);
+    if (!target || !canModerateJournalComment(state, user, target) || !target.body.trim() || target.commentDeleted || !!target.commentPinned === pinned) return false;
+    target.commentPinned = pinned;
+    return true;
+  };
+  // Tombstone moderator deletions: retain numerical ratings and all reply relationships.
+  const deleteJournalCommentText = (commentId: string): boolean => {
+    const target = journalThreadComments.find(c => c.id === commentId);
+    if (!target || !canModerateJournalComment(state, user, target) || !target.body.trim() || target.commentDeleted) return false;
+    target.body = ""; target.commentDeleted = true; target.commentPinned = false; target.commentUnpublished = false;
+    for (const report of state.clubCommentReports.filter(r => r.source === "journal" && r.commentId === commentId && r.status === "pending")) {
+      report.status = "comment_deleted"; report.resolvedAt = new Date().toISOString(); report.resolvedByUserId = user.id;
+    }
     return true;
   };
 
@@ -2186,10 +2278,19 @@ export function createDomain(state: AppState, user: User, users: User[]) {
     createActivity,
     updateActivity,
     saveClubRating,
+    deleteClubRatingComment,
+    setClubCommentPublished,
+    setClubCommentPinned,
+    reportClubRatingComment,
+    dismissClubCommentReport,
     markNotificationRead,
     saveActivityJournal,
     postJournalThreadComment,
     deleteJournalThreadComment,
+    deleteJournalCommentText,
+    setJournalCommentPublished,
+    setJournalCommentPinned,
+    reportJournalThreadComment,
     toggleJournalLike,
     cancelActivity,
   };

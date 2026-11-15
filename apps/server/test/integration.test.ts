@@ -9,17 +9,21 @@ import type { AppState } from '@student-dash/shared/state';
 import type { CommandName } from '@student-dash/shared/contracts';
 
 // Redirect BEFORE importing any module that initializes the application's pool.
-// Refuse any destructive setup unless the connection names our isolated database.
+// Create a unique disposable database; never reset or truncate an existing database.
 const isolated = new URL(process.env.DATABASE_URL!);
-isolated.pathname = '/student_dash_test';
+const testDatabase = `student_dash_test_${process.pid}_${Date.now()}`;
+isolated.pathname = `/${testDatabase}`;
 process.env.DATABASE_URL = isolated.toString();
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const psql = (query:string) => execFileSync('psql', ['-h', `${root}.local/socket`, '-p', '55439', '-U', 'student_dash', '-d', 'postgres', '-tAc', query], {
  env:{...process.env, PGPASSWORD:decodeURIComponent(isolated.password)}, encoding:'utf8', stdio:['ignore','pipe','pipe'],
 }).trim();
-if (psql("SELECT 1 FROM pg_database WHERE datname='student_dash_test'") !== '1') psql('CREATE DATABASE student_dash_test');
+psql(`CREATE DATABASE "${testDatabase}"`);
 
 const { app } = await import('../src/app.js');
+// Model independent test clients without exhausting one loopback IP's production limit.
+app.set('trust proxy', 'loopback');
+let commandSequence = 0;
 const { auth } = await import('../src/auth.js');
 const { db, pool } = await import('../src/db.js');
 const S = await import('../src/schema.js');
@@ -33,7 +37,7 @@ const exercised = new Set<CommandName>();
 const succeeded = new Set<CommandName>();
 async function command(actor:Actor, name:CommandName, args:unknown[], status=200) {
  exercised.add(name);
- const response = await request(app).post('/api/commands').set('Origin',origin).set('Cookie',actor.cookie).send({expectedUserId:actor.id,command:name,args});
+ const response = await request(app).post('/api/commands').set('X-Forwarded-For', `203.0.113.${1 + (++commandSequence % 250)}`).set('Origin',origin).set('Cookie',actor.cookie).send({expectedUserId:actor.id,command:name,args});
  assert.equal(response.status,status,`${name}: ${JSON.stringify(response.body)}`);
  if(status===200)succeeded.add(name);
  return response.body as {state:AppState;result:boolean};
@@ -63,13 +67,11 @@ const rating={dimensions:{activities:5,community:4,organization:4,leadership:5},
 let teacher:Actor,owner:Actor,member:Actor,outsider:Actor,clubId:string,activityId:string;
 
 test('PostgreSQL, BetterAuth and Express integration',async t=>{
- t.after(async()=>{await pool.end();});
- assert.equal(new URL(process.env.DATABASE_URL!).pathname,'/student_dash_test');
+ t.after(async()=>{await pool.end();psql(`DROP DATABASE "${testDatabase}"`);});
+ assert.equal(new URL(process.env.DATABASE_URL!).pathname,`/${testDatabase}`);
  const database=await pool.query('select current_database() as name');
- assert.equal(database.rows[0].name,'student_dash_test');
+ assert.equal(database.rows[0].name,testDatabase);
  await migrate(db,{migrationsFolder:fileURLToPath(new URL('../drizzle',import.meta.url))});
- const tables=await pool.query("select tablename from pg_tables where schemaname='public'");
- if(tables.rows.length)await pool.query(`TRUNCATE ${tables.rows.map(r=>`"${String(r.tablename).replaceAll('"','""')}"`).join(',')} CASCADE`);
  teacher=await makeActor('teacher','founder');owner=await makeActor('owner');member=await makeActor('member');outsider=await makeActor('outsider');
  await fixture(s=>{s.clubs.push({id:'official',name:'School Events',description:'Official events',category:'School Official Events',founderId:teacher.id,founderName:'Teacher',activities:[],members:[],isSchoolOfficial:true},{id:'council',name:'Student Council',description:'Council',category:'School Official Events',founderId:teacher.id,founderName:'Teacher',activities:[],members:[],isSchoolOfficial:true});});
 
@@ -133,8 +135,9 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
   assert.deepEqual(await loadState(db),before,'missing expected identity must leave domain records unchanged');
  });
  await t.test('club applications, review ownership, reject and official approval',async()=>{
-  for(const description of [Array(101).fill('word').join(' '),'x'.repeat(30001)])await command(owner,'submitClubApplication',[{...application(),description}],422);
-  await command(owner,'submitClubApplication',[application()]);
+  for(const description of ['中'.repeat(101),'x'.repeat(101),'a '.repeat(50)+'a'])await command(owner,'submitClubApplication',[{...application(),description}],422);
+  await command(owner,'submitClubApplication',[{...application(),description:'中'.repeat(100)}]);
+  assert.equal((await state(owner)).clubApplications[0].description,'中'.repeat(100));
   await command(owner,'submitClubApplication',[application()],409);
   let appId=(await state(owner)).clubApplications[0].id;
   assert.equal((await state(outsider)).clubApplications.length,0);
@@ -143,7 +146,7 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
   await command(teacher,'reviewClubApplication',[appId,'approve',''],409);
   clubId=(await state(owner)).clubs.find(c=>c.name==='Science Society')!.id;
   assert.deepEqual((await state(owner)).clubs.find(c=>c.id===clubId)!.members,[owner.student]);
-  await command(owner,'submitClubApplication',[application('Rejected Club')]);
+  await command(owner,'submitClubApplication',[{...application('Rejected Club'),description:'a '.repeat(49)+'ab'}]);
   appId=(await state(owner)).clubApplications.find(a=>a.name==='Rejected Club')!.id;
   await command(teacher,'reviewClubApplication',[appId,'reject',''],409);
   await command(teacher,'reviewClubApplication',[appId,'reject','Please revise']);
@@ -217,7 +220,124 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
   await command(member,'saveClubRating',[clubId,rating],409);
   assert.equal((await state(outsider)).clubAttendance.length,0);
  });
- await t.test('journal media, participant validation, replies, deletion and likes',async()=>{
+ await t.test('comment reporting authorization, validation, concurrent duplicates and persisted private review',async()=>{
+  const before=await loadState(db);
+  const target=before.clubRatings[0];
+  const args:[string,string,{reason:string;ratingUpdatedAt:string}]=[clubId,target.id,{reason:'  Offensive language  ',ratingUpdatedAt:target.updatedAt}];
+  await request(app).post('/api/commands').set('Origin',origin).send({expectedUserId:outsider.id,command:'reportClubRatingComment',args}).expect(401);
+  await command(outsider,'reportClubRatingComment',['official',target.id,args[2]],404);
+  await command(outsider,'reportClubRatingComment',[clubId,'missing',args[2]],404);
+  await command(member,'reportClubRatingComment',args,403); // own comment is not in community feedback
+  await command(outsider,'reportClubRatingComment',[clubId,target.id,{reason:' ',ratingUpdatedAt:target.updatedAt}],422);
+  await command(outsider,'reportClubRatingComment',[clubId,target.id,{reason:'x'.repeat(501),ratingUpdatedAt:target.updatedAt}],422);
+  await command(outsider,'reportClubRatingComment',[clubId,target.id,{...args[2],reporterUserId:teacher.id}],422);
+  await command(outsider,'reportClubRatingComment',[clubId,target.id,{reason:'x',ratingUpdatedAt:'2000-01-01T00:00:00.000Z'}],409);
+  // Eligible students must submit their own rating before seeing/reporting community comments.
+  await fixture(s=>{for(const week of ['2098-01-06','2098-01-13','2098-01-20'])s.clubAttendance.push({clubId,studentId:owner.student,weekStart:week,status:'present',updatedAt:new Date().toISOString()});});
+  await fixture(s=>{const club=s.clubs.find(c=>c.id===clubId)!;club.members.push(outsider.student);for(const week of ['2098-01-06','2098-01-13','2098-01-20'])s.clubAttendance.push({clubId,studentId:outsider.student,weekStart:week,status:'present',updatedAt:new Date().toISOString()});});
+  await command(outsider,'reportClubRatingComment',args,403);
+  await fixture(s=>{s.clubs.find(c=>c.id===clubId)!.members=s.clubs.find(c=>c.id===clubId)!.members.filter(id=>id!==outsider.student);});
+  await fixture(s=>{s.clubAttendance=before.clubAttendance;});
+  const submitted=await command(outsider,'reportClubRatingComment',args);
+  assert.deepEqual(submitted.state.clubRatings,before.clubRatings,'reporting must retain all comments and scores');
+  const report=submitted.state.clubCommentReports[0];
+  assert.equal(report.reason,'Offensive language');assert.equal(report.reporterUserId,outsider.id);
+  assert.equal(report.commentSnapshot,target.comment);assert.equal(report.status,'pending');
+  assert.deepEqual((await state(member)).clubCommentReports,[],'author cannot see reporter or reason');
+  assert.deepEqual((await state(owner)).clubCommentReports,[report],'leader receives own club report queue');
+  assert.equal((await state(teacher)).clubCommentReports.length,1);
+  assert.deepEqual((await loadState(db)).clubCommentReports,[report],'fresh database load must retain the report');
+  await command(outsider,'dismissClubCommentReport',[report.id],403);
+  await command(owner,'dismissClubCommentReport',[report.id]);
+  await command(teacher,'dismissClubCommentReport',['missing'],404);
+  await command(teacher,'dismissClubCommentReport',[report.id],409);
+  await command(teacher,'dismissClubCommentReport',[report.id],409);
+  await command(outsider,'reportClubRatingComment',args,409); // dismissal cannot be spammed with identical reports
+  const reviewed=(await loadState(db)).clubCommentReports[0];
+  assert.equal(reviewed.status,'dismissed');assert.equal(reviewed.resolvedByUserId,owner.id);assert.ok(reviewed.resolvedAt);
+  assert.deepEqual((await loadState(db)).clubRatings,before.clubRatings,'dismissal must not modify feedback');
+  const duplicates=await Promise.all([0,1].map(()=>request(app).post('/api/commands').set('Origin',origin).set('Cookie',owner.cookie).send({expectedUserId:owner.id,command:'reportClubRatingComment',args})));
+  assert.deepEqual(duplicates.map(r=>r.status).sort(),[200,409]);
+  assert.equal((await loadState(db)).clubCommentReports.filter(r=>r.reporterUserId===owner.id).length,1);
+  assert.equal((await state(outsider)).clubCommentReports.length,1,'student only receives own reports');
+  // Database constraint is a second defense beyond serialized command authorization.
+  await assert.rejects(db.insert(S.clubCommentReports).values({id:'duplicate-report',data:{...report,id:'duplicate-report'}}), (error:any)=>error.cause?.code==='23505');
+  await command(teacher,'reportClubRatingComment',args,403);
+  assert.equal((await loadState(db)).clubCommentReports.length,2,'teacher report attempts must not create records');
+ });
+
+ await t.test('leaders moderate only their own club; hidden text and report snapshots stay private; publish/pin preserve scores', async()=>{
+  const before=await loadState(db);
+  const target=before.clubRatings[0];
+  const sentinel={...target,id:'other-club-moderation',clubId:'official',comment:'Other club text'};
+  await fixture(s=>{s.clubRatings.push(sentinel);s.clubs.find(c=>c.id==='official')!.founderId=outsider.id;});
+  for(const actor of [member,outsider]) {
+   await command(actor,'setClubCommentPublished',[clubId,target.id,false],403);
+   await command(actor,'setClubCommentPinned',[clubId,target.id,true],403);
+   await command(actor,'deleteClubRatingComment',[clubId,target.id],403);
+   await command(actor,'dismissClubCommentReport',[before.clubCommentReports[1].id],403);
+  }
+  for(const [name,args] of [
+   ['setClubCommentPublished',['official',sentinel.id,false]],
+   ['setClubCommentPinned',['official',sentinel.id,true]],
+   ['deleteClubRatingComment',['official',sentinel.id]],
+  ] as [CommandName,unknown[]][]) await command(owner,name,args,403);
+  assert.deepEqual((await state(outsider)).clubCommentReports,before.clubCommentReports.filter(r=>r.reporterUserId===outsider.id),'other club leaders only see their own reports');
+  await command(owner,'setClubCommentPublished',[clubId,target.id,false]);
+  await command(owner,'setClubCommentPublished',[clubId,target.id,false],409);
+  for(const actor of [member,outsider]) {
+   const publicState=await state(actor);
+   assert.equal(publicState.clubRatings.find(r=>r.id===target.id)!.comment,'');
+   assert.ok(publicState.clubCommentReports.every(r=>r.ratingId!==target.id || r.commentSnapshot===''));
+  }
+  for(const actor of [owner,teacher]) assert.equal((await state(actor)).clubRatings.find(r=>r.id===target.id)!.comment,target.comment);
+  await command(outsider,'reportClubRatingComment',[clubId,target.id,{reason:'Hidden',ratingUpdatedAt:target.updatedAt}],403);
+  await command(owner,'setClubCommentPinned',[clubId,target.id,true]);
+  await command(owner,'setClubCommentPinned',[clubId,target.id,false]);
+  await command(teacher,'setClubCommentPinned',['official',sentinel.id,true]);
+  await command(teacher,'setClubCommentPublished',['official',sentinel.id,false]);
+  await command(teacher,'setClubCommentPublished',['official',sentinel.id,true]);
+  await command(owner,'setClubCommentPublished',[clubId,target.id,true]);
+  assert.equal((await state(outsider)).clubRatings.find(r=>r.id===target.id)!.comment,target.comment);
+  const persisted=(await loadState(db)).clubRatings.find(r=>r.id===target.id)!;
+  assert.deepEqual(persisted.dimensions,target.dimensions);assert.equal(persisted.overall,target.overall);assert.equal(persisted.updatedAt,target.updatedAt);
+  await command(owner,'setClubCommentPublished',[clubId,target.id,false]);
+  await command(owner,'deleteClubRatingComment',[clubId,target.id]);
+  const deleted=(await loadState(db)).clubRatings.find(r=>r.id===target.id)!;
+  assert.equal(deleted.comment,'');assert.deepEqual(deleted.dimensions,target.dimensions);assert.equal(deleted.overall,target.overall);
+  await command(owner,'setClubCommentPublished',[clubId,target.id,true],409);
+  // Restore only this test's isolated fixtures for subsequent teacher regression tests.
+  await fixture(s=>{s.clubRatings=before.clubRatings;s.clubCommentReports=before.clubCommentReports;s.clubs=before.clubs;});
+ });
+
+ await t.test('teacher comment moderation is scoped, persisted and never grants rating eligibility',async()=>{
+  const before=await state(teacher);
+  const target=before.clubRatings[0];
+  const sentinel={...target,id:'moderation-unrelated',clubId:'official',comment:'Keep this unrelated comment'};
+  await fixture(s=>{s.clubRatings.push(sentinel);});
+  for(const actor of [member,outsider]) {
+   await command(actor,'deleteClubRatingComment',[clubId,target.id],403);
+   assert.deepEqual((await state(teacher)).clubRatings,[...before.clubRatings,sentinel]);
+  }
+  await command(teacher,'saveClubRating',[clubId,rating],403);
+  await command(teacher,'setClubMemberAttendance',[clubId,'2026-11-09',member.student,'present'],403);
+  await command(teacher,'deleteClubRatingComment',['official',target.id],404);
+  await command(teacher,'deleteClubRatingComment',[clubId,'missing'],404);
+  assert.deepEqual((await state(teacher)).clubRatings,[...before.clubRatings,sentinel]);
+  await command(teacher,'deleteClubRatingComment',[clubId,target.id]);
+  const byId=(ratings:AppState['clubRatings'])=>ratings.slice().sort((a,b)=>a.id.localeCompare(b.id));
+  const expected=byId([{...target,comment:''},sentinel]);
+  assert.deepEqual(byId((await state(member)).clubRatings),expected,'fresh API read must retain scores and unrelated comments');
+  assert.deepEqual(byId((await loadState(db)).clubRatings),expected,'moderation must persist across database reload');
+  assert.deepEqual((await state(teacher)).clubAttendance,before.clubAttendance,'viewing and moderation must never fabricate attendance');
+  await command(teacher,'deleteClubRatingComment',[clubId,target.id],409);
+  const reports=(await loadState(db)).clubCommentReports;
+  assert.equal(reports.filter(r=>r.status==='pending').length,0);
+  assert.ok(reports.some(r=>r.status==='comment_deleted' && r.resolvedByUserId===teacher.id));
+  await command(outsider,'reportClubRatingComment',[clubId,target.id,{reason:'No comment',ratingUpdatedAt:target.updatedAt}],409);
+  await fixture(s=>{s.clubRatings=s.clubRatings.filter(r=>r.id!==sentinel.id);});
+ });
+ await t.test('journal media, participant validation, replies, deletion and likes',async(journalTest)=>{
   const photo='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2ioAAAAASUVORK5CYII=';
   const journal={activityName:'Workshop',reflection:'We learned together.',participantIds:[member.student],photos:[photo],socialMediaLink:'https://example.org'};
   await command(member,'saveActivityJournal',[clubId,activityId,journal],403);
@@ -244,6 +364,79 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
   assert.equal((await state(owner)).journalLikes.length,1);
   await command(member,'toggleJournalLike',[clubId,activityId]);
   assert.equal((await state(owner)).journalLikes.length,0);
+  await journalTest.test('journal and reply reports: canonical ownership, privacy, tombstone deletion and score persistence', async()=>{
+    const before = await loadState(db);
+    const reply = before.journalThreadComments.find(c=>c.parentId===comment.id)!;
+    await command(teacher,'reportJournalThreadComment',[comment.id,{reason:'Teacher report'}],403);
+    await command(member,'reportJournalThreadComment',[comment.id,{reason:'Own report'}],403);
+    await command(outsider,'reportJournalThreadComment',[comment.id,{reason:' '}],422);
+    await command(outsider,'reportJournalThreadComment',[comment.id,{reason:'x'.repeat(501)}],422);
+    await command(outsider,'reportJournalThreadComment',[comment.id,{reason:'Fictional journal report'}]);
+    await command(outsider,'reportJournalThreadComment',[comment.id,{reason:'Duplicate'}],409);
+    await command(member,'reportJournalThreadComment',[reply.id,{reason:'Fictional reply report'}]);
+    const report=(await state(owner)).clubCommentReports.find(r=>r.source==='journal' && r.commentId===comment.id)!;
+    assert.ok(report);assert.equal(report.clubId,clubId);assert.equal(report.activityId,activityId);
+    assert.ok((await state(teacher)).clubCommentReports.some(r=>r.id===report.id));
+    assert.ok(!(await state(member)).clubCommentReports.some(r=>r.id===report.id),'other-club leader must not see this report');
+    for (const actor of [member,outsider]) {
+      await command(actor,'setJournalCommentPublished',[comment.id,false],403);
+      await command(actor,'setJournalCommentPinned',[comment.id,true],403);
+      await command(actor,'deleteJournalCommentText',[comment.id],403);
+      await command(actor,'dismissClubCommentReport',[report.id],403);
+    }
+    // Caller cannot attach a valid foreign comment to a forged club/activity/journal.
+    await command(owner,'setJournalCommentPublished',[comment.id,false,'other-photo-owner'],422);
+    await command(owner,'reportJournalThreadComment',[comment.id,{reason:'Forged',clubId:'other-photo-owner',activityId:'other-photo-activity',journalId:'forged-journal'}],422);
+    await command(owner,'postJournalThreadComment',['other-photo-owner','other-photo-activity',{body:'Forged parent',parentId:comment.id}],422);
+    const foreign={...comment,id:'foreign-journal-comment',clubId:'other-photo-owner',activityId:'other-photo-activity'};
+    const malformed={...comment,id:'forged-stored-comment',clubId,activityId:'other-photo-activity'};
+    await fixture(s=>{s.journalThreadComments.push(foreign,malformed);});
+    for (const name of ['setJournalCommentPublished','setJournalCommentPinned','deleteJournalCommentText'] as CommandName[]) {
+      const args = name==='deleteJournalCommentText' ? [foreign.id] : [foreign.id,true];
+      await command(owner,name,args,403);
+      await command(owner,name,name==='deleteJournalCommentText' ? [malformed.id] : [malformed.id,true],404);
+    }
+    assert.ok(!(await state(owner)).journalThreadComments.some(c=>c.id===malformed.id));
+    await command(teacher,'setJournalCommentPublished',[foreign.id,false]);
+    await command(teacher,'setJournalCommentPublished',[foreign.id,true]);
+    await command(teacher,'setJournalCommentPinned',[foreign.id,true]);
+    await command(teacher,'deleteJournalCommentText',[foreign.id]);
+    await command(owner,'setJournalCommentPublished',[comment.id,false]);
+    await command(owner,'setJournalCommentPublished',[reply.id,false]);
+    for (const actor of [member,outsider]) {
+      const visible = await state(actor);
+      assert.equal(visible.journalThreadComments.find(c=>c.id===comment.id)!.body,'');
+      assert.equal(visible.journalThreadComments.find(c=>c.id===reply.id)!.body,'');
+      assert.ok(visible.clubCommentReports.filter(r=>r.source==='journal').every(r=>r.commentSnapshot===''));
+    }
+    assert.equal((await state(owner)).journalThreadComments.find(c=>c.id===comment.id)!.body,comment.body);
+    assert.equal((await state(teacher)).journalThreadComments.find(c=>c.id===reply.id)!.body,reply.body);
+    await command(member,'reportJournalThreadComment',[reply.id,{reason:'Hidden'}],403);
+    await command(owner,'setJournalCommentPublished',[comment.id,true]);
+    await command(owner,'setJournalCommentPublished',[reply.id,true]);
+    assert.equal((await state(outsider)).journalThreadComments.find(c=>c.id===comment.id)!.body,comment.body);
+    await command(owner,'setJournalCommentPinned',[comment.id,true]);
+    await command(owner,'setJournalCommentPinned',[reply.id,true]);
+    await command(owner,'setJournalCommentPinned',[reply.id,false]);
+    await command(owner,'dismissClubCommentReport',[report.id]);
+    const replyReport=(await state(owner)).clubCommentReports.find(r=>r.source==='journal' && r.commentId===reply.id)!;
+    await command(teacher,'dismissClubCommentReport',[replyReport.id]);
+    await command(owner,'deleteJournalCommentText',[comment.id]);
+    const saved=await loadState(db);
+    const tombstone=saved.journalThreadComments.find(c=>c.id===comment.id)!;
+    assert.equal(tombstone.body,'');assert.equal(tombstone.rating,5);assert.equal(tombstone.commentDeleted,true);
+    assert.equal(saved.journalThreadComments.find(c=>c.id===reply.id)!.parentId,comment.id);
+    assert.equal(saved.journalThreadComments.find(c=>c.id===reply.id)!.body,reply.body);
+    assert.deepEqual(saved.clubRatings,before.clubRatings);assert.deepEqual(saved.activityJournals,before.activityJournals);
+    await command(owner,'setJournalCommentPublished',[comment.id,true],409);
+    await command(member,'reportJournalThreadComment',[reply.id,{reason:'Dismissed duplicate'}],409);
+    await command(outsider,'reportJournalThreadComment',[reply.id,{reason:'Another reply report'}]);
+    await command(owner,'deleteJournalCommentText',[reply.id]);
+    const resolvedReply=(await loadState(db)).clubCommentReports.find(r=>r.source==='journal' && r.commentId===reply.id && r.reporterUserId===outsider.id)!;
+    assert.equal(resolvedReply.status,'comment_deleted');assert.equal(resolvedReply.resolvedByUserId,owner.id);
+    assert.equal((await loadState(db)).journalThreadComments.find(c=>c.id===reply.id)!.commentDeleted,true);
+    await fixture(s=>{s.journalThreadComments=before.journalThreadComments;s.clubCommentReports=before.clubCommentReports;});
+  });
   await command(member,'deleteJournalThreadComment',[comment.id]);
   assert.equal((await state(owner)).journalThreadComments.length,0);
  });
@@ -391,6 +584,6 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
   assert.equal((await pool.query('select count(*)::int as count from notifications')).rows[0].count,before.rows[0].count);
   assert.deepEqual([...exercised].sort(),Object.keys(commandSchemas).sort());
   assert.deepEqual([...succeeded].sort(),Object.keys(commandSchemas).sort(),'every action must have a successful HTTP exercise');
-  assert.equal(Object.keys(commandSchemas).length,31);
+  assert.equal(Object.keys(commandSchemas).length,40);
  });
 });

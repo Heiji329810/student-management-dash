@@ -100,3 +100,10 @@ export function emptyClubRatingInput(): ClubRatingInput {
     comment: "",
   };
 }
+
+// Stable ordering even when comment timestamps match; pinning never affects scores.
+export function compareClubComments(a: import("./types.js").ClubRatingRecord, b: import("./types.js").ClubRatingRecord): number {
+  return Number(!!b.commentPinned) - Number(!!a.commentPinned)
+    || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+    || a.id.localeCompare(b.id);
+}

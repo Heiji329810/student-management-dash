@@ -81,6 +81,14 @@ const STUDENT_PAGES: NavDestination[] = [
 
 const FOUNDER_PAGES: NavDestination[] = [
   {
+    id: 'rate-my-club',
+    label: 'Rate My Club',
+    description: 'View club rankings and moderate student comments',
+    href: '/rate-my-club',
+    group: 'Pages',
+    keywords: ['rate', 'rating', 'review', 'feedback', 'club', 'comments'],
+  },
+  {
     id: 'founder',
     label: 'Organize Official Events',
     description: 'Create school events and view registrations',

@@ -1,3 +1,4 @@
+import { journalCommentClub } from "./commentModeration.js";
 import type { AppState } from "@student-dash/shared/state";
 import type { User } from "@student-dash/shared/types";
 export function projectState(source: AppState, user: User): AppState {
@@ -21,6 +22,32 @@ export function projectState(source: AppState, user: User): AppState {
   };
   state.removalNotices = state.removalNotices.filter(
     (n) => n.studentId === ownStudent,
+  );
+  state.clubCommentReports = state.clubCommentReports.filter(
+    (report) => {
+      if (report.source === "journal") {
+        const comment = source.journalThreadComments.find(c => c.id === report.commentId);
+        if (!comment || !journalCommentClub(source, comment) || comment.clubId !== report.clubId || comment.activityId !== report.activityId) return false;
+      }
+      return teacher || managed.has(report.clubId) || report.reporterUserId === user.id;
+    },
+  );
+  state.journalThreadComments = state.journalThreadComments.filter(c => !!journalCommentClub(source, c)).map(c =>
+    c.commentUnpublished && !teacher && !managed.has(c.clubId) ? {...c, body: ""} : c,
+  );
+  state.clubCommentReports = state.clubCommentReports.map(report => {
+    if (report.source !== "journal") return report;
+    const comment = source.journalThreadComments.find(c => c.id === report.commentId);
+    const authorized = !!comment && !!journalCommentClub(source, comment) && comment.clubId === report.clubId && comment.activityId === report.activityId;
+    return !authorized || (comment?.commentUnpublished && !teacher && !managed.has(report.clubId)) ? {...report, commentSnapshot: ""} : report;
+  });
+  // Retain numerical records for rankings, but never send hidden text to students.
+  state.clubRatings = state.clubRatings.map(r =>
+    r.commentUnpublished && !teacher && !managed.has(r.clubId) ? { ...r, comment: "" } : r,
+  );
+  state.clubCommentReports = state.clubCommentReports.map(report =>
+    report.source !== "journal" && !teacher && !managed.has(report.clubId) && state.clubRatings.some(r => r.id === report.ratingId && r.commentUnpublished)
+      ? { ...report, commentSnapshot: "" } : report,
   );
   if (!teacher) {
     state.clubApplications = state.clubApplications.filter(

@@ -336,6 +336,9 @@ export interface JournalThreadCommentInput {
 }
 
 export interface JournalThreadComment {
+  commentUnpublished?: boolean;
+  commentPinned?: boolean;
+  commentDeleted?: boolean;
   id: string;
   clubId: string;
   activityId: string;
@@ -363,6 +366,8 @@ export interface ClubRatingInput {
 }
 
 export interface ClubRatingRecord extends ClubRatingInput {
+  commentUnpublished?: boolean;
+  commentPinned?: boolean;
   id: string;
   clubId: string;
   userId: string;
@@ -377,4 +382,24 @@ export interface User {
   email: string;
   role: UserRole;
   studentId?: string;
+}
+
+// Reports retain the exact comment version reviewed, independently of rating scores.
+export interface ClubCommentReport {
+  source?: "journal";
+  activityId?: string;
+  commentId?: string;
+  id: string;
+  clubId: string;
+  ratingId: string;
+  reporterUserId: string;
+  reporterName: string;
+  authorName: string;
+  commentSnapshot: string;
+  ratingUpdatedAt: string;
+  reason: string;
+  createdAt: string;
+  status: 'pending' | 'dismissed' | 'comment_deleted';
+  resolvedAt?: string;
+  resolvedByUserId?: string;
 }

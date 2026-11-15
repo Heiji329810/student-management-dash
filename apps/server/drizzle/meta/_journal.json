@@ -15,6 +15,13 @@
       "when": 1794312133615,
       "tag": "0001_lovely_silvermane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794713051496,
+      "tag": "0002_powerful_zombie",
+      "breakpoints": true
     }
   ]
 }
