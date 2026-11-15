@@ -5,6 +5,14 @@ import { CLUB_CATEGORIES } from '@/data/categories';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -162,57 +170,68 @@ export function CreateClub() {
   return (
     <div className="flex justify-center w-full">
       <div className="w-full max-w-2xl space-y-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight">Create a Club</h2>
-          <p className="text-muted-foreground mt-2">
-            Submit a club application for teacher review
-          </p>
-        </div>
-
-        {myApplications.length > 0 && (
-          <Card className="border-2">
-            <CardHeader>
-              <CardTitle>My Applications</CardTitle>
-              <CardDescription>
-                Teacher decisions and comments for your submitted clubs
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {myApplications.map((application) => (
-                <div key={application.id} className="rounded-md border p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{application.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Submitted {new Date(application.submittedAt).toLocaleDateString()}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Create a Club</h2>
+            <p className="text-muted-foreground mt-2">
+              Submit a club application for teacher review
+            </p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm" className="ml-auto">
+                My applications
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80dvh] overflow-y-auto sm:max-w-2xl">
+              <DialogHeader className="pr-6">
+                <DialogTitle>My Applications</DialogTitle>
+                <DialogDescription>
+                  Teacher decisions and comments for your submitted clubs
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-w-0 space-y-3 break-words">
+                {myApplications.length === 0 && (
+                  <p className="py-4 text-sm text-muted-foreground">
+                    You haven't submitted any club applications yet.
+                  </p>
+                )}
+                {myApplications.map((application) => (
+                  <div key={application.id} className="rounded-md border p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{application.name}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Submitted {new Date(application.submittedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline">
+                          {application.status.replaceAll('_', ' ')}
+                        </Badge>
+                        {application.wantsSchoolOfficial && (
+                          <Badge>School Official</Badge>
+                        )}
+                      </div>
+                    </div>
+                    {application.managingTeacherName && (
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        <span>Teacher in charge of managing the club</span>
+                        {': '}
+                        {application.managingTeacherName}
                       </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">
-                        {application.status.replaceAll('_', ' ')}
-                      </Badge>
-                      {application.wantsSchoolOfficial && (
-                        <Badge>School Official</Badge>
-                      )}
-                    </div>
+                    )}
+                    {application.teacherComment && (
+                      <p className="mt-3 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                        Teacher comment: {application.teacherComment}
+                      </p>
+                    )}
                   </div>
-                  {application.managingTeacherName && (
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      <span>Teacher in charge of managing the club</span>
-                      {': '}
-                      {application.managingTeacherName}
-                    </p>
-                  )}
-                  {application.teacherComment && (
-                    <p className="mt-3 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-                      Teacher comment: {application.teacherComment}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
 
         <Card className="border-2">
         <CardHeader>

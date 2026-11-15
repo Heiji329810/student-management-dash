@@ -108,7 +108,10 @@ const ZH_TRANSLATIONS: Record<string, string> = {
     '请用不超过 100 个英文单词介绍您的社团……',
   'Submit Application': '提交申请',
   Cancel: '取消',
+  Close: '关闭',
   'My Applications': '我的申请',
+  'My applications': '我的申请',
+  "You haven't submitted any club applications yet.": '您尚未提交任何社团申请。',
   'Teacher decisions and comments for your submitted clubs':
     '查看教师对已提交社团的决定和意见',
   'Application submitted': '申请已提交',
