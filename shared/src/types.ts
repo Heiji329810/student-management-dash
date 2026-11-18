@@ -49,6 +49,7 @@ export interface ClubAttendanceEntry {
 }
 
 export interface CreateClubInput {
+  attachment?: { name: string; base64: string };
   founderNames: string[];
   name: string;
   category: string;
@@ -65,7 +66,7 @@ export type ClubApplicationStatus =
   | "established_official"
   | "established_ordinary";
 
-export interface ClubApplication extends CreateClubInput {
+export interface ClubApplication extends Omit<CreateClubInput, "attachment"> {
   id: string;
   applicantUserId: string;
   applicantStudentId: string;
@@ -239,6 +240,7 @@ export interface ActivityRemovalNotice {
 }
 
 export type NotificationType =
+  | "file_feedback"
   | "comment_reply"
   | "event_registration"
   | "club_join"
@@ -382,6 +384,8 @@ export interface User {
   email: string;
   role: UserRole;
   studentId?: string;
+  readOnly?: boolean;
+  expiresAt?: string;
 }
 
 // Reports retain the exact comment version reviewed, independently of rating scores.

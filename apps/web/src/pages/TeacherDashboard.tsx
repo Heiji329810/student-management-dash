@@ -1,4 +1,6 @@
+import { Link } from "react-router-dom";
 import { useMemo, useState } from 'react';
+import { AccountRequests } from '@/components/AccountRequests';
 import {
   ClipboardList,
   ThumbsDown,
@@ -82,6 +84,8 @@ export function TeacherDashboard() {
         </div>
       )}
 
+      <AccountRequests />
+
       <section className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -160,6 +164,7 @@ export function TeacherDashboard() {
                     </div>
                   </div>
 
+                  <Button asChild variant="outline"><Link to={`/club-applications/${application.id}`}>Review application file</Link></Button>
                   {application.status === 'pending' ? (
                     <div className="space-y-3 border-t pt-4">
                       <label

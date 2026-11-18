@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   pgTable,
+  integer,
   text,
   timestamp,
   boolean,
@@ -17,6 +18,7 @@ export const user = pgTable("user", {
   image: text(),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
+  approved: boolean().notNull().default(false),
   role: text().$type<T.UserRole>().notNull().default("student"),
   studentId: text().unique(),
 });
@@ -298,3 +300,33 @@ export const media = pgTable("media", {
   base64: text().notNull(),
   createdAt: timestamp().notNull().defaultNow(),
 });
+
+export const studentUploads = pgTable("student_uploads", {
+  id: text().primaryKey(),
+  clubId: text(),
+  applicationId: text(),
+  ownerId: text().notNull().references(() => user.id),
+  currentVersion: integer().notNull().default(1),
+  recalled: boolean().notNull().default(false),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+}, t => [index("student_upload_owner_idx").on(t.ownerId)]);
+export const uploadVersions = pgTable("upload_versions", {
+  id: text().primaryKey(),
+  uploadId: text().notNull().references(() => studentUploads.id, { onDelete: "cascade" }),
+  version: integer().notNull(),
+  name: text().notNull(),
+  mime: text().notNull(),
+  size: integer().notNull(),
+  base64: text().notNull(),
+  preview: jsonb().$type<import("@student-dash/shared/uploads").FilePreview>().notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+}, t => [uniqueIndex("upload_version_unique").on(t.uploadId, t.version)]);
+export const uploadComments = pgTable("upload_comments", {
+  id: text().primaryKey(),
+  versionId: text().notNull().references(() => uploadVersions.id, { onDelete: "cascade" }),
+  teacherId: text().notNull().references(() => user.id),
+  teacherName: text().notNull(),
+  body: text().notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+}, t => [index("upload_comment_version_idx").on(t.versionId)]);

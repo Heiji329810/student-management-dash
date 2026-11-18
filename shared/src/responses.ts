@@ -280,6 +280,7 @@ export const activityRemovalNoticeSchema = z
   })
   .strict();
 export const notificationTypeSchema = z.union([
+  z.literal("file_feedback"),
   z.literal("comment_reply"),
   z.literal("event_registration"),
   z.literal("club_join"),
@@ -437,6 +438,8 @@ export const userSchema = z
     email: z.string(),
     role: userRoleSchema,
     studentId: z.string().optional(),
+    readOnly: z.boolean().optional(),
+    expiresAt: z.iso.datetime().optional(),
   })
   .strict();
 export const appStateSchema = z

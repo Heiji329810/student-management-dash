@@ -43,6 +43,7 @@ export function NotificationBell() {
     isNotificationRead,
     markNotificationRead,
     isAuthenticated,
+    currentUser,
   } = useApp();
 
   const [open, setOpen] = useState(false);
@@ -97,7 +98,7 @@ export function NotificationBell() {
   };
 
   const handleNotificationClick = async (notification: NotificationRecord) => {
-    if (!isNotificationRead(notification.id) && !await markNotificationRead(notification.id)) return;
+    if (!currentUser?.readOnly && !isNotificationRead(notification.id) && !await markNotificationRead(notification.id)) return;
 
     if (notification.type === 'activity_cancelled') {
       setCancelNotice(notification);

@@ -34,8 +34,9 @@ export async function initializeOrganizations(tx: Database, teacher: User) {
       });
   await saveState(tx, state);
 }
-export async function provisionAccount(input: unknown) {
+export async function provisionAccount(input: unknown, approved = true) {
   const data = provisionInput.parse(input);
+  data.email = data.email.trim().toLowerCase();
   let createdId: string | undefined;
   try {
     return await db.transaction(async (tx) => {
@@ -62,9 +63,9 @@ export async function provisionAccount(input: unknown) {
       createdId = result.user.id;
       await tx
         .update(user)
-        .set({ role: data.role, studentId: data.studentId ?? null })
+        .set({ role: data.role, studentId: data.studentId ?? null, approved })
         .where(eq(user.id, createdId));
-      if (data.role === "student")
+      if (data.role === "student" && approved)
         await tx
           .insert(students)
           .values({

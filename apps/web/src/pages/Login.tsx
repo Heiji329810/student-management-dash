@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/useApp';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<TranslationKey | ''>('');
-  const { login, busy, loading, isAuthenticated } = useApp();
+  const { login, busy, loading, isAuthenticated, error: accountError } = useApp();
   const { theme, toggleTheme } = useTheme();
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
@@ -81,9 +81,9 @@ export function Login() {
         </CardHeader>
         <CardContent>
           <form noValidate onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {(error || accountError) && (
               <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                {t(error)}
+                {accountError || (error ? t(error) : '')}
               </div>
             )}
 
@@ -134,6 +134,9 @@ export function Login() {
 
 
           </form>
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            <Link className="text-primary underline underline-offset-4" to="/signup">{language === 'en' ? 'Create a student account' : '建立學生帳號'}</Link>
+          </p>
         </CardContent>
       </Card>
     </div>

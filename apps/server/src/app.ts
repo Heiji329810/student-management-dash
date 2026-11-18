@@ -8,8 +8,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { rateLimit } from "express-rate-limit";
 import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
-import { ZodError } from "zod";
-import { eq, sql } from "drizzle-orm";
+import { z, ZodError } from "zod";
+import { and, eq, sql } from "drizzle-orm";
 import { commandEnvelope } from "@student-dash/shared/contracts";
 import type { User } from "@student-dash/shared/types";
 import { auth } from "./auth.js";
@@ -19,12 +19,23 @@ import { HttpError } from "./errors.js";
 import { loadState, saveState, loadUsers, lock } from "./store.js";
 import { projectState } from "./projection.js";
 import { executeCommand } from "./service.js";
-import { media } from "./schema.js";
+import { randomUUID } from "node:crypto";
+import { media, user, students } from "./schema.js";
+import { provisionAccount } from "./accounts.js";
+import { accountExpiresAt, isAccountReadOnly, READ_ONLY_MESSAGE } from "./accountAccess.js";
+import { uploadsRouter } from "./uploadsRouter.js";
 export const app = express();
 app.disable("x-powered-by");
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (config.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+  }
   next();
 });
 app.get("/api/health", async (_req, res) => {
@@ -47,12 +58,18 @@ app.use("/api", (req, _res, next) => {
   next();
 });
 app.all("/api/auth/{*splat}", (req, res, next) => {
-  if (
-    req.path.startsWith("/api/auth/sign-up") ||
-    req.path.startsWith("/api/auth/update-user") ||
-    req.path.startsWith("/api/auth/delete-user")
-  )
-    return next(new HttpError(403, "Account provisioning is managed locally"));
+  const allowed = new Map([
+    ["/api/auth/get-session", ["GET"]],
+    ["/api/auth/sign-in/email", ["POST"]],
+    ["/api/auth/sign-out", ["POST"]],
+    ["/api/auth/change-password", ["POST"]],
+    ["/api/auth/list-sessions", ["GET"]],
+    ["/api/auth/revoke-session", ["POST"]],
+    ["/api/auth/revoke-sessions", ["POST"]],
+    ["/api/auth/revoke-other-sessions", ["POST"]],
+  ]);
+  if (!allowed.get(req.path)?.includes(req.method))
+    return next(new HttpError(403, "This account operation is not available"));
   return toNodeHandler(auth)(req, res);
 });
 app.use(
@@ -64,23 +81,69 @@ app.use(
     legacyHeaders: false,
   }),
 );
+const signupInput = z.object({
+  name: z.string().trim().min(1).max(100),
+  email: z.email().max(254),
+  studentId: z.string().trim().min(1).max(200),
+  password: z.string().min(12).max(128),
+}).strict();
+app.post("/api/signup", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }), express.json({ limit: "8kb" }), async (req, res) => {
+  const input = signupInput.parse(req.body);
+  try {
+    await provisionAccount({ ...input, role: "student" }, false);
+  } catch {
+    throw new HttpError(409, "Unable to create account. Your email or student ID may already be registered. Try signing in or contact the school.");
+  }
+  res.status(201).json({ status: "pending" });
+});
 app.use(express.json({ limit: "32mb" }));
 app.use("/api", async (req, res, next) => {
   const session = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
   });
   if (!session) throw new HttpError(401, "Please sign in");
-  const role = session.user.role;
+  const [record] = await db.select({ approved: user.approved, createdAt: user.createdAt, role: user.role, name: user.name, email: user.email, studentId: user.studentId }).from(user).where(eq(user.id, session.user.id));
+  if (!record?.approved) throw new HttpError(403, "Your account is awaiting approval. You can access the dashboard once the school approves your account.");
+  const readOnly = isAccountReadOnly(record.createdAt);
+  if (readOnly && !["GET", "HEAD", "OPTIONS"].includes(req.method)) throw new HttpError(403, READ_ONLY_MESSAGE);
+  const role = record.role;
   if (role !== "student" && role !== "founder")
     throw new HttpError(403, "Unknown account role");
   res.locals.user = {
     id: session.user.id,
-    name: session.user.name,
-    email: session.user.email,
+    name: record.name,
+    email: record.email,
     role,
-    studentId: session.user.studentId ?? undefined,
+    studentId: record.studentId ?? undefined,
+    readOnly,
+    expiresAt: accountExpiresAt(record.createdAt).toISOString(),
   } satisfies User;
   next();
+});
+app.use("/api/club-applications/:applicationId/uploads", uploadsRouter);
+app.get("/api/account-requests", async (_req, res) => {
+  if (res.locals.user.role !== "founder") throw new HttpError(403, "Teacher access required");
+  const requests = await db.select({ id: user.id, name: user.name, email: user.email, studentId: user.studentId, createdAt: user.createdAt })
+    .from(user).where(and(eq(user.approved, false), eq(user.role, "student"))).orderBy(user.createdAt);
+  res.json({ requests });
+});
+app.post("/api/account-requests/:id/approve", async (req, res) => {
+  if (res.locals.user.role !== "founder") throw new HttpError(403, "Teacher access required");
+  const { expectedUserId } = z.object({ expectedUserId: z.string().min(1) }).strict().parse(req.body);
+  if (expectedUserId !== res.locals.user.id) throw new HttpError(409, "Your session changed. Reload before approving.");
+  await db.transaction(async tx => {
+    await lock(tx);
+    const [teacher] = await tx.select().from(user).where(eq(user.id, expectedUserId)).for("update");
+    if (!teacher?.approved || teacher.role !== "founder") throw new HttpError(403, "Teacher access required");
+    if (isAccountReadOnly(teacher.createdAt)) throw new HttpError(403, READ_ONLY_MESSAGE);
+    const approved = await tx.update(user).set({ approved: true, updatedAt: new Date() })
+      .where(and(eq(user.id, req.params.id), eq(user.approved, false), eq(user.role, "student"))).returning({ id: user.id, name: user.name, email: user.email, studentId: user.studentId });
+    if (!approved.length) throw new HttpError(409, "This request has already been reviewed or is no longer available. Refresh the list.");
+    const target = approved[0];
+    if (!target.studentId) throw new HttpError(409, "Student ID is missing.");
+    await tx.insert(students).values({ id: randomUUID(), name: target.name, email: target.email, studentId: target.studentId });
+  });
+  res.json({ approved: true });
 });
 app.get("/api/state", async (_req, res) => {
   const state = await db.transaction((tx) => loadState(tx), {
@@ -99,6 +162,10 @@ app.post("/api/commands", async (req, res) => {
   if (expectedUserId !== res.locals.user.id) throw new HttpError(409, "Your session changed. Reload before saving.");
   const result = await db.transaction(async (tx) => {
     await lock(tx);
+    const [actor] = await tx.select({ id: user.id, name: user.name, email: user.email, role: user.role, studentId: user.studentId, createdAt: user.createdAt, approved: user.approved }).from(user).where(eq(user.id, res.locals.user.id)).for("update");
+    if (!actor?.approved) throw new HttpError(403, "Account access is not approved.");
+    if (isAccountReadOnly(actor.createdAt)) throw new HttpError(403, READ_ONLY_MESSAGE);
+    if (actor.role !== res.locals.user.role || actor.studentId !== (res.locals.user.studentId ?? null)) throw new HttpError(409, "Your account permissions changed. Reload before saving.");
     const state = await loadState(tx);
     const result = await executeCommand(
       tx,

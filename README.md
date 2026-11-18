@@ -11,19 +11,26 @@ routes, bilingual UI and theme controls are retained. No TanStack was added.
 - `shared`: request schemas, inferred request types, entity types, pure read selectors/form helpers.
 - `docs`: frontend coverage inventory and CC handoff.
 
-## Running local demo
+## Running local app
 
-The persistent demo is at **http://192.168.101.93:5275** on the LAN and
-**http://localhost:5275** locally (API loopback localhost:4100), backed by
-its own `student_dash_demo` database. Fictional account credentials are in the
-private, ignored `.local/demo-login.txt` file. Demo services are enabled as
-`student-dash-demo-api.service` and `student-dash-demo-web.service` in user systemd.
-Do not run `npm run dev` on those ports while the demo services are running.
-To develop in the foreground, first stop only those two services, then run the
-commands below; re-enable the demo with `systemctl --user start` for those units.
-Browser verification uses separate ports 5274/4101 and `student_dash_browser`, so
-resetting its fixtures never changes demo data. `scripts/prepare-demo.ts` is
-idempotent and never truncates demo tables.
+The local app is at **http://localhost:5275** and **http://192.168.101.93:5275**
+on the LAN, backed by the dedicated `student_dash_live` PostgreSQL database.
+The first real teacher account has been provisioned. The database starts with only
+that account and the two required system organizations; no fictional roster,
+activities or applications were imported. Private login details are in the ignored,
+mode-600 `.local/live-login.json` file. Do not commit or share this file publicly.
+
+User systemd runs `student-dash-live-api.service` and `student-dash-live-web.service`;
+the API depends on `student-dash-postgres.service`. Both app services load `.env.live`.
+The default `.env` also points to the live database. Stop these two app services before
+running `npm run dev` on the same ports. This is a local HTTP installation, not an
+internet production deployment; see the production setup guide for HTTPS hosting.
+
+The former demo database and `.env.demo` are retained separately for rollback;
+`student-dash-demo-api.service` and `student-dash-demo-web.service` are disabled and
+stopped. The pre-activation `.env` backup is under `.local/activation-backup-*`.
+Browser fixtures use separate ports 5274/4101 and `student_dash_browser`.
+Never run fixture preparation against `.env` or `.env.live`.
 
 ## Local setup
 
@@ -60,13 +67,18 @@ To stop this project's cluster:
 
 ## Controlled account provisioning
 
-There is no public signup screen or API signup. Better Auth's internal signup API
+Students can request an account at `/signup`. New requests remain pending and cannot
+read dashboard data, media, or perform business actions until approved. Existing accounts
+retain access. Approved teachers can review and approve requests in the Student account requests
+section of their home dashboard. Students cannot list or approve requests, and
+approval only grants student access. No approver account is created by signup. Direct Better Auth HTTP signup remains blocked.
+Better Auth's internal signup API
 is used by the local provisioning command; it hashes passwords and persists accounts.
 `founder` is the **teacher** role in the original UI; students can also found clubs.
 Roles/student IDs cannot be set by browser input. Provide a unique student ID for
 student accounts. Do not use real student data for local demonstrations.
 
-Use `node scripts/provision-account.mjs` for interactive provisioning. It hides
+Use `node --env-file=.env scripts/provision-account.mjs` for interactive provisioning. It hides
 the password and sends JSON to the account command through stdin. No default
 password is shipped and passwords never appear in command arguments.
 The first teacher provisioning automatically initializes the School Official Events
@@ -97,3 +109,42 @@ npm run db:migrate   # apply checked-in migrations; never schema-push production
 
 See [CC handoff](docs/HANDOFF.md) and [coverage review](docs/coverage-review.md) for
 feature mapping, browser verification, architecture and known limits.
+
+## Real accounts and production setup
+
+See [safe activation and remaining decisions](docs/PRODUCTION-SETUP.md). Production
+uses a separate database and private environment; do not repoint the demo.
+
+## Two-year account access
+
+Every approved account (students and teachers) becomes read-only two calendar years
+after its original signup timestamp. Existing accounts follow the same rule; approval,
+password recovery and role changes do not restart the clock. Leap-day anniversaries
+fall on February 28. Users may still sign in and read content allowed by their existing
+permissions. All business mutations, including account approvals, are rejected by the
+server after expiry, including for sessions already signed in. No records are deleted.
+Pending approval still blocks access entirely.
+
+### Club application attachments
+
+Students attach a required file on **Create a Club** before submitting. The
+application and its attachment save in one transaction; an invalid file cannot
+leave a partial application. Teachers open **Review application file** on the
+application review card. Students use **My applications → View file and feedback**.
+The attachment stays linked to the application after a decision.
+
+Supported files: XLSX, CSV, PDF, DOCX, PNG, JPG, WebP, and UTF-8 TXT. Teachers can
+preview, download, and comment on a specific version. Feedback creates an in-app
+notification linking to the application file. Only the applicant and teachers can
+access the file; pending accounts are blocked and expired accounts are read-only.
+
+Files are limited to 10 MB each, 100 MB per student including previous versions,
+and 10 versions per attachment. Replacements retain earlier versions and comments
+and restart the 10-minute recall window. Recall hides the attachment from teachers
+without withdrawing the application. Uploading a replacement shares it again.
+Previously downloaded copies cannot be revoked.
+
+Spreadsheet previews show at most 10 sheets, 100 rows and 30 columns; document text
+previews are capped at 100,000 characters. Download the original for omitted
+content. Files and feedback are stored in PostgreSQL and included in database
+backups. Format checks and limited preview processing are not antivirus scanning.

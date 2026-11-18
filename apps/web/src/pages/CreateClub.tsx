@@ -1,10 +1,11 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_ACCEPT } from "@student-dash/shared/uploads";
 import { useState } from 'react';
 import {
   CLUB_INTRODUCTION_MAX_CHARACTERS,
   CLUB_INTRODUCTION_LIMIT_ERROR,
   countClubIntroductionCharacters,
 } from '@student-dash/shared/clubIntroduction';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/useApp';
 import { CLUB_CATEGORIES } from '@/data/categories';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,6 +48,8 @@ export function CreateClub() {
   const [managingTeacherName, setManagingTeacherName] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!currentUser) {
     return null;
@@ -86,9 +89,7 @@ export function CreateClub() {
             )}
             <div className="mt-6 flex gap-3">
               <Button onClick={() => setSubmitted(false)}>Submit another application</Button>
-              <Button variant="outline" onClick={() => navigate('/clubs')}>
-                Browse clubs
-              </Button>
+              <Button asChild variant="outline"><Link to={`/club-applications/${clubApplications.find(a => a.applicantUserId === currentUser.id && a.name === clubName.trim())?.id}`}>View file and feedback</Link></Button>
             </div>
           </CardContent>
         </Card>
@@ -119,6 +120,7 @@ export function CreateClub() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setError('');
 
     const trimmedFounders = founderNames.map((name) => name.trim()).filter(Boolean);
@@ -151,7 +153,20 @@ export function CreateClub() {
       return;
     }
 
+    if (!file || !file.size || file.size > MAX_UPLOAD_BYTES) {
+      setError('Attach a non-empty application file up to 10 MB.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1]);
+      reader.onerror = () => reject(new Error('Unable to read the selected file.'));
+      reader.readAsDataURL(file);
+    });
     const success = await submitClubApplication({
+      attachment: { name: file.name, base64 },
       founderNames: trimmedFounders,
       name: clubName,
       category,
@@ -163,8 +178,11 @@ export function CreateClub() {
     if (success) {
       setSubmitted(true);
     } else {
-      setError('Unable to submit this application. You may already have an active application with this club name.');
+      setError('Unable to submit this application and file. Check the file format and whether this club name is already in use.');
     }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to submit the application.');
+    } finally { setSubmitting(false); }
   };
 
   return (
@@ -221,6 +239,7 @@ export function CreateClub() {
                         {application.managingTeacherName}
                       </p>
                     )}
+                    <Button asChild variant="outline" size="sm" className="mt-3"><Link to={`/club-applications/${application.id}`}>View file and feedback</Link></Button>
                     {application.teacherComment && (
                       <p className="mt-3 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
                         Teacher comment: {application.teacherComment}
@@ -413,9 +432,14 @@ export function CreateClub() {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <label htmlFor="application-file" className="text-sm font-medium">Application file (required)</label>
+              <Input id="application-file" type="file" accept={UPLOAD_ACCEPT} required disabled={submitting || currentUser.readOnly} onChange={(event) => setFile(event.target.files?.[0] ?? null)} aria-describedby="application-file-help" />
+              <p id="application-file-help" className="text-sm text-muted-foreground">Attach your spreadsheet or supporting document. XLSX, CSV, PDF, DOCX, PNG, JPG, WebP, or TXT; up to 10 MB. The file is sent together with your application for teacher review.</p>
+            </div>
             <div className="flex gap-3 pt-2">
-              <Button type="submit" className="flex-1">
-                Submit Application
+              <Button type="submit" disabled={submitting || currentUser.readOnly} aria-busy={submitting} className="flex-1">
+                {submitting ? 'Submitting application and file…' : 'Submit Application'}
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate('/clubs')}>
                 Cancel

@@ -10,15 +10,19 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/migrate.ts",
     "account:create": "tsx --env-file-if-exists=../../.env src/provision.ts",
-    "db:initialize": "tsx --env-file-if-exists=../../.env src/seed.ts"
+    "db:initialize": "tsx --env-file-if-exists=../../.env src/seed.ts",
+    "account:recover": "tsx --env-file-if-exists=../../.env src/recover.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.19",
     "@student-dash/shared": "*",
     "better-auth": "^1.4.0",
+    "csv-parse": "^7.0.3",
     "drizzle-orm": "^0.45.0",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
+    "mammoth": "^1.13.0",
     "pg": "^8.16.3",
     "zod": "^4.3.6"
   },

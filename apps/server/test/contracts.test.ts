@@ -26,7 +26,7 @@ test('date-only long-term final day uses shared closing policy',()=>{
 
 
 test('club introduction uses a 100 Unicode character limit including spaces', () => {
- const application = {founderNames:['Owner'],name:'Club',category:'Science',wantsSchoolOfficial:false};
+ const application = {attachment:{name:'proposal.txt',base64:'dGVzdA=='},founderNames:['Owner'],name:'Club',category:'Science',wantsSchoolOfficial:false};
  for (const description of ['中'.repeat(100), 'a'.repeat(100), '😀'.repeat(100), 'a '.repeat(50)]) {
   assert.ok(commandSchemas.submitClubApplication.safeParse([{...application,description}]).success);
  }

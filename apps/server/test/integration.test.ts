@@ -53,7 +53,7 @@ async function makeActor(name:string, role:'student'|'founder'='student'):Promis
  const email=`${name}@integration.example`;
  const signup=await auth.api.signUpEmail({body:{email,password,name}});
  const student=`student-${name}`;
- await db.update(S.user).set({role,studentId:role==='student'?student:null}).where(eq(S.user.id,signup.user.id));
+ await db.update(S.user).set({approved:true,role,studentId:role==='student'?student:null}).where(eq(S.user.id,signup.user.id));
  if(role==='student')await db.insert(S.students).values({id:student,studentId:student,name,email});
  const signin=await request(app).post('/api/auth/sign-in/email').set('Origin',origin).set('x-forwarded-for',`198.51.100.${++actorSequence}`).send({email,password}).expect(200);
  const cookies=signin.headers['set-cookie'] as unknown as string[];
@@ -62,7 +62,7 @@ async function makeActor(name:string, role:'student'|'founder'='student'):Promis
  return {id:signup.user.id,cookie:cookies.map(c=>c.split(';')[0]).join('; '),student,email};
 }
 const activity=(title='Workshop',capacity=2)=>({title,description:'A practical learning workshop',startDateTime:'2099-06-01T12:00:00Z',durationType:'one-day',location:'Room 1',locationUndetermined:false,estimatedParticipants:capacity,allStudentsOnCampus:false});
-const application=(name='Science Society',official=false)=>({founderNames:['Owner'],name,category:'Science',description:'Study science together',wantsSchoolOfficial:official,...(official?{managingTeacherName:'Teacher'}:{})});
+const application=(name='Science Society',official=false)=>({attachment:{name:'proposal.txt',base64:Buffer.from('Fictional club proposal').toString('base64')},founderNames:['Owner'],name,category:'Science',description:'Study science together',wantsSchoolOfficial:official,...(official?{managingTeacherName:'Teacher'}:{})});
 const rating={dimensions:{activities:5,community:4,organization:4,leadership:5},overall:5,comment:'Excellent'};
 let teacher:Actor,owner:Actor,member:Actor,outsider:Actor,clubId:string,activityId:string;
 
@@ -75,8 +75,75 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
  teacher=await makeActor('teacher','founder');owner=await makeActor('owner');member=await makeActor('member');outsider=await makeActor('outsider');
  await fixture(s=>{s.clubs.push({id:'official',name:'School Events',description:'Official events',category:'School Official Events',founderId:teacher.id,founderName:'Teacher',activities:[],members:[],isSchoolOfficial:true},{id:'council',name:'Student Council',description:'Council',category:'School Official Events',founderId:teacher.id,founderName:'Teacher',activities:[],members:[],isSchoolOfficial:true});});
 
+ await t.test('public signup stays pending and cannot read or write school data', async () => {
+  const input = {name:'Pending Student',email:'pending@integration.example',studentId:'PENDING-001',password};
+  await request(app).post('/api/signup').send(input).expect(403);
+  await request(app).post('/api/signup').set('Origin',origin).send({...input,role:'founder'}).expect(422);
+  await request(app).post('/api/signup').set('Origin',origin).send({...input,approved:true}).expect(422);
+  await request(app).post('/api/signup').set('Origin',origin).send({...input,password:'short'}).expect(422);
+  await request(app).post('/api/signup').set('Origin',origin).send(input).expect(201);
+  await request(app).post('/api/signup').set('Origin',origin).send(input).expect(409);
+  const [pending] = await db.select().from(S.user).where(eq(S.user.email,input.email));
+  assert.equal(pending.role,'student'); assert.equal(pending.approved,false);
+  assert.equal((await db.select().from(S.students).where(eq(S.students.email,input.email))).length,0);
+  const publicState = await request(app).get('/api/state').set('Cookie',owner.cookie).expect(200);
+  assert.equal(publicState.body.state.students.some((s:{name:string})=>s.name===input.name),false);
+  const signin = await request(app).post('/api/auth/sign-in/email').set('Origin',origin).send({email:input.email,password}).expect(200);
+  const cookie = (signin.headers['set-cookie'] as unknown as string[]).map(c=>c.split(';')[0]).join('; ');
+  const denied = await request(app).get('/api/state').set('Cookie',cookie).expect(403);
+  assert.match(denied.body.error.message,/awaiting approval/);
+  await request(app).get('/api/media/any').set('Cookie',cookie).expect(403);
+  await request(app).post('/api/commands').set('Origin',origin).set('Cookie',cookie).send({expectedUserId:pending.id,command:'joinClub',args:['official']}).expect(403);
+  await request(app).post('/api/auth/update-user').set('Origin',origin).set('Cookie',cookie).send({approved:true}).expect(403);
+  await request(app).get('/api/account-requests').expect(401);
+  await request(app).get('/api/account-requests').set('Cookie',cookie).expect(403);
+  await request(app).get('/api/account-requests').set('Cookie',owner.cookie).expect(403);
+  const listing = await request(app).get('/api/account-requests').set('Cookie',teacher.cookie).expect(200);
+  assert.ok(listing.body.requests.some((r:{id:string})=>r.id===pending.id));
+  assert.equal(listing.body.requests.some((r:{id:string})=>r.id===teacher.id),false);
+  const endpoint = `/api/account-requests/${pending.id}/approve`;
+  await request(app).post(endpoint).set('Origin',origin).set('Cookie',cookie).send({expectedUserId:pending.id}).expect(403);
+  await request(app).post(endpoint).set('Origin',origin).set('Cookie',owner.cookie).send({expectedUserId:owner.id}).expect(403);
+  await request(app).post(endpoint).set('Cookie',teacher.cookie).send({expectedUserId:teacher.id}).expect(403);
+  await request(app).post(endpoint).set('Origin',origin).set('Cookie',teacher.cookie).send({expectedUserId:owner.id}).expect(409);
+  await request(app).post(endpoint).set('Origin',origin).set('Cookie',teacher.cookie).send({expectedUserId:teacher.id,role:'founder'}).expect(422);
+  await request(app).post(endpoint).set('Origin',origin).set('Cookie',teacher.cookie).send({expectedUserId:teacher.id}).expect(200);
+  await request(app).post(endpoint).set('Origin',origin).set('Cookie',teacher.cookie).send({expectedUserId:teacher.id}).expect(409);
+  await request(app).get('/api/state').set('Cookie',cookie).expect(200);
+  assert.equal((await db.select().from(S.user).where(eq(S.user.id,pending.id)))[0].role,'student');
+  const reviewed = await request(app).get('/api/account-requests').set('Cookie',teacher.cookie).expect(200);
+  assert.equal(reviewed.body.requests.some((r:{id:string})=>r.id===pending.id),false);
+ });
+
+ await t.test('two-year accounts retain login and reads but lose all business writes', async () => {
+  const old = await makeActor('readonly-student');
+  await db.update(S.user).set({createdAt:new Date('2020-01-01T00:00:00Z')}).where(eq(S.user.id,old.id));
+  const response = await request(app).get('/api/state').set('Cookie',old.cookie).expect(200);
+  assert.equal(response.body.user.readOnly,true);
+  assert.equal(response.body.user.expiresAt,'2022-01-01T00:00:00.000Z');
+  for (const commandName of ['joinClub','submitClubApplication','submitClubRating','markNotificationsRead']) {
+    const denied = await request(app).post('/api/commands').set('Origin',origin).set('Cookie',old.cookie).send({expectedUserId:old.id,command:commandName,args:[]}).expect(403);
+    assert.match(denied.body.error.message,/read-only/);
+  }
+  const signin = await request(app).post('/api/auth/sign-in/email').set('Origin',origin).send({email:old.email,password}).expect(200);
+  const newCookie = (signin.headers['set-cookie'] as unknown as string[]).map(c=>c.split(';')[0]).join('; ');
+  await request(app).get('/api/state').set('Cookie',newCookie).expect(200);
+  // Published-media reads still reach normal visibility rules, rather than expiry denial.
+  await request(app).get('/api/media/missing').set('Cookie',newCookie).expect(404);
+  const oldTeacher = await makeActor('readonly-teacher','founder');
+  await db.update(S.user).set({createdAt:new Date('2020-01-01T00:00:00Z')}).where(eq(S.user.id,oldTeacher.id));
+  await request(app).get('/api/account-requests').set('Cookie',oldTeacher.cookie).expect(200);
+  await request(app).post(`/api/account-requests/${old.id}/approve`).set('Origin',origin).set('Cookie',oldTeacher.cookie).send({expectedUserId:oldTeacher.id}).expect(403);
+  assert.equal((await request(app).get('/api/state').set('Cookie',owner.cookie).expect(200)).body.user.readOnly,false);
+ });
+
  await t.test('authentication, protected provisioning, origin, expiry and logout',async()=>{
-  await request(app).get('/api/health').expect(200);
+  const health = await request(app).get('/api/health').expect(200);
+  assert.equal(health.headers['x-frame-options'],'DENY');
+  assert.equal(health.headers['referrer-policy'],'no-referrer');
+  for (const path of ['/api/auth/sign-up/email','/api/auth/sign-up/email/','/api/auth/SIGN-UP/email','/api/auth/%73ign-up/email','/api/auth/change-email','/api/auth/link-social','/api/auth/unknown']) {
+    await request(app).post(path).set('Origin',origin).send({}).expect(403);
+  }
   await request(app).get('/api/state').expect(401);
   await request(app).post('/api/commands').set('Origin',origin).send({expectedUserId:owner.id,command:'joinClub',args:['official']}).expect(401);
   await request(app).post('/api/auth/sign-up/email').set('Origin',origin).send({}).expect(403);
@@ -99,6 +166,17 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
   const logout=await makeActor('logout');
   await request(app).post('/api/auth/sign-out').set('Origin',origin).set('Cookie',logout.cookie).send({}).expect(200);
   await request(app).get('/api/state').set('Cookie',logout.cookie).expect(401);
+ });
+ await t.test('offline recovery revokes sessions and persists a usable replacement password',async()=>{
+  const actor=await makeActor('recovery');
+  const replacement='Replacement-integration-password-456!';
+  const run=(approval:string)=>spawnSync(`${root}node_modules/.bin/tsx`,['apps/server/src/recover.ts'],{cwd:root,env:{...process.env,ACCOUNT_ADMIN_APPROVED:approval},input:JSON.stringify({email:actor.email,password:replacement}),encoding:'utf8'});
+  assert.equal(run('no').status,1);
+  await request(app).get('/api/state').set('Cookie',actor.cookie).expect(200);
+  assert.equal(run('yes').status,0);
+  await request(app).get('/api/state').set('Cookie',actor.cookie).expect(401);
+  await request(app).post('/api/auth/sign-in/email').set('Origin',origin).set('x-forwarded-for','198.51.100.240').send({email:actor.email,password}).expect(401);
+  await request(app).post('/api/auth/sign-in/email').set('Origin',origin).set('x-forwarded-for','198.51.100.241').send({email:actor.email,password:replacement}).expect(200);
  });
  await t.test('CLI provisioning success and compensation after domain insert failure',async()=>{
   const run=(body:Record<string,unknown>)=>spawnSync(`${root}node_modules/.bin/tsx`,['--env-file-if-exists=.env','apps/server/src/provision.ts'],{cwd:root,env:{...process.env},input:JSON.stringify(body),encoding:'utf8'});
@@ -545,7 +623,8 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
   // reaches the retained legacy approved_official_candidate election workflow.
   const today=new Date().toLocaleDateString('en-CA');
   await command(teacher,'createClubElection',[today,1],409);
-  await fixture(s=>{s.clubApplications.push({id:'legacy-candidate',applicantUserId:outsider.id,applicantStudentId:outsider.student,applicantName:'Outsider',applicantEmail:outsider.email,...application('Legacy Candidate',true),status:'approved_official_candidate',submittedAt:new Date().toISOString()});});
+  const {attachment: _fixtureAttachment, ...legacyApplication} = application('Legacy Candidate',true);
+  await fixture(s=>{s.clubApplications.push({id:'legacy-candidate',applicantUserId:outsider.id,applicantStudentId:outsider.student,applicantName:'Outsider',applicantEmail:outsider.email,...legacyApplication,status:'approved_official_candidate',submittedAt:new Date().toISOString()});});
   await command(member,'createClubElection',[today,1],403);
   await command(teacher,'createClubElection',[today,1]);
   const election=(await state(teacher)).clubElections[0];
@@ -575,6 +654,80 @@ test('PostgreSQL, BetterAuth and Express integration',async t=>{
    assert.deepEqual(await loadState(db),initialized,'repeated initialization must preserve domain records');
   }
  });
+ await t.test('private uploads, previews, versioned feedback, notifications and timed recall', async()=>{
+  const uploader=await makeActor('file-uploader'),other=await makeActor('file-outsider');
+  const data=Buffer.from('Name,Score\nAlice,42\nBob,51\n');
+  const payload={expectedUserId:uploader.id,name:'scores.csv',base64:data.toString('base64')};
+  const submit=(actor:Actor,attachment:object|undefined,expectedUserId=actor.id)=>request(app).post('/api/commands').set('Origin',origin).set('Cookie',actor.cookie).send({expectedUserId,command:'submitClubApplication',args:[{...application('File Application'),attachment}]});
+  await request(app).get('/api/club-applications/unknown/uploads').expect(401);
+  await submit(teacher,{name:payload.name,base64:payload.base64}).expect(403);
+  await submit(uploader,undefined).expect(422);
+  await submit(uploader,{name:payload.name,base64:payload.base64},other.id).expect(409);
+  await submit(uploader,{name:'../scores.csv',base64:payload.base64}).expect(422);
+  await submit(uploader,{name:'script.html',base64:payload.base64}).expect(422);
+  await submit(uploader,{name:'fake.pdf',base64:payload.base64}).expect(422);
+  assert.equal((await state(uploader)).clubApplications.some(a=>a.name==='File Application'),false,'invalid attachments must not create applications');
+  const created=await submit(uploader,{name:payload.name,base64:payload.base64}).expect(200);
+  const applicationId=created.body.state.clubApplications.find((a:{name:string})=>a.name==='File Application').id;
+  assert.equal(created.body.state.clubApplications.find((a:{id:string})=>a.id===applicationId).attachment,undefined,'file bytes stay out of shared application state');
+  const base=`/api/club-applications/${applicationId}/uploads`;
+  const listing=await request(app).get(base).set('Cookie',uploader.cookie).expect(200);
+  assert.equal(listing.body.items.length,1);
+  const id=listing.body.items[0].id;
+  const endpoint=`${base}/${id}`;
+  await submit(uploader,{name:payload.name,base64:payload.base64}).expect(409);
+  assert.equal((await request(app).get(base).set('Cookie',uploader.cookie).expect(200)).body.items.length,1,'duplicate application cannot leave an extra attachment');
+  const detail=(await request(app).get(endpoint).set('Cookie',uploader.cookie).expect(200)).body;
+  const v1=detail.versions[0].id;
+  assert.equal(detail.upload.currentVersion,1);
+  assert.ok(Date.parse(detail.upload.recallUntil)>Date.now());
+  const preview=await request(app).get(`${endpoint}/versions/${v1}/preview`).set('Cookie',teacher.cookie).expect(200);
+  assert.equal(preview.body.kind,'spreadsheet');assert.deepEqual(preview.body.sheets[0].rows[1],['Alice','42']);
+  const downloaded=await request(app).get(`${endpoint}/versions/${v1}/content`).set('Cookie',teacher.cookie).expect(200);
+  assert.deepEqual(downloaded.body,data);assert.match(downloaded.headers['content-disposition'],/^attachment/);
+  assert.equal(downloaded.headers['x-content-type-options'],'nosniff');
+  for(const suffix of ['',`/versions/${v1}/content`,`/versions/${v1}/preview`])await request(app).get(endpoint+suffix).set('Cookie',other.cookie).expect(404);
+  await request(app).get(base).set('Cookie',other.cookie).expect(404);
+  await command(other,'submitClubApplication',[application('Other File Application')]);
+  const otherApp=(await state(other)).clubApplications.find(a=>a.name==='Other File Application')!;
+  const wrongApplication=`/api/club-applications/${otherApp.id}/uploads/${id}`;
+  for (const suffix of ['',`/versions/${v1}/content`,`/versions/${v1}/preview`]) await request(app).get(wrongApplication+suffix).set('Cookie',teacher.cookie).expect(404);
+  await request(app).post(`${wrongApplication}/recall`).set('Origin',origin).set('Cookie',uploader.cookie).send({expectedUserId:uploader.id,expectedVersion:1}).expect(404);
+  await request(app).post(`${wrongApplication}/versions`).set('Origin',origin).set('Cookie',uploader.cookie).send({...payload,expectedVersion:1}).expect(404);
+  await request(app).post(`${wrongApplication}/comments`).set('Origin',origin).set('Cookie',teacher.cookie).send({expectedUserId:teacher.id,versionId:v1,body:'Wrong application'}).expect(404);
+  await request(app).get('/api/club-applications/missing/uploads').set('Cookie',teacher.cookie).expect(404);
+  await request(app).get('/api/uploads').set('Cookie',teacher.cookie).expect(404);
+  const feedback={expectedUserId:teacher.id,versionId:v1,body:'Please check the second row.'};
+  await request(app).post(`${endpoint}/comments`).set('Origin',origin).set('Cookie',uploader.cookie).send({...feedback,expectedUserId:uploader.id}).expect(403);
+  await request(app).post(`${endpoint}/comments`).set('Origin',origin).set('Cookie',teacher.cookie).send(feedback).expect(201);
+  const afterFeedback=(await request(app).get(endpoint).set('Cookie',uploader.cookie).expect(200)).body;
+  assert.equal(afterFeedback.comments[0].versionId,v1);assert.equal(afterFeedback.comments[0].body,feedback.body);
+  const studentState=await state(uploader);assert.ok(studentState.notifications.some(n=>n.type==='file_feedback'&&n.href===`/club-applications/${applicationId}?upload=${id}#student-files`));
+  assert.equal((await state(other)).notifications.some(n=>n.type==='file_feedback'&&n.href===`/club-applications/${applicationId}?upload=${id}#student-files`),false);
+  await db.update(S.studentUploads).set({updatedAt:new Date(Date.now()-600001)}).where(eq(S.studentUploads.id,id));
+  await request(app).post(`${endpoint}/recall`).set('Origin',origin).set('Cookie',uploader.cookie).send({expectedUserId:uploader.id,expectedVersion:1}).expect(409);
+  const replacement={...payload,name:'revised.csv',base64:Buffer.from('Name,Score\nAlice,43\n').toString('base64'),expectedVersion:1};
+  await request(app).post(`${endpoint}/versions`).set('Origin',origin).set('Cookie',other.cookie).send({...replacement,expectedUserId:other.id}).expect(404);
+  await request(app).post(`${endpoint}/versions`).set('Origin',origin).set('Cookie',uploader.cookie).send(replacement).expect(201);
+  await request(app).post(`${endpoint}/versions`).set('Origin',origin).set('Cookie',uploader.cookie).send(replacement).expect(409);
+  const replaced=(await request(app).get(endpoint).set('Cookie',teacher.cookie).expect(200)).body;
+  assert.equal(replaced.versions.length,2);assert.equal(replaced.upload.currentVersion,2);assert.ok(Date.parse(replaced.upload.recallUntil)>Date.now()+590000);
+  assert.equal(replaced.comments[0].versionId,v1);
+  await request(app).post(`${endpoint}/recall`).set('Origin',origin).set('Cookie',teacher.cookie).send({expectedUserId:teacher.id,expectedVersion:2}).expect(403);
+  await request(app).post(`${endpoint}/recall`).set('Origin',origin).set('Cookie',uploader.cookie).send({expectedUserId:uploader.id,expectedVersion:2}).expect(200);
+  assert.equal((await request(app).get(endpoint).set('Cookie',uploader.cookie).expect(200)).body.upload.recalled,true);
+  await request(app).get(endpoint).set('Cookie',teacher.cookie).expect(404);
+  await request(app).get(`${endpoint}/versions/${v1}/content`).set('Cookie',teacher.cookie).expect(404);
+  await request(app).post(`${endpoint}/comments`).set('Origin',origin).set('Cookie',teacher.cookie).send(feedback).expect(404);
+  assert.equal((await request(app).get(base).set('Cookie',teacher.cookie).expect(200)).body.items.some((item:{id:string})=>item.id===id),false);
+  await db.update(S.user).set({createdAt:new Date('2020-01-01T00:00:00Z')}).where(eq(S.user.id,uploader.id));
+  await request(app).get(endpoint).set('Cookie',uploader.cookie).expect(200);
+  await request(app).get(`${endpoint}/versions/${v1}/content`).set('Cookie',uploader.cookie).expect(200);
+  await request(app).post(`${endpoint}/versions`).set('Origin',origin).set('Cookie',uploader.cookie).send({...replacement,expectedVersion:2}).expect(403);
+  await db.update(S.user).set({approved:false}).where(eq(S.user.id,other.id));
+  await request(app).get(base).set('Cookie',other.cookie).expect(403);
+ });
+
  await t.test('database round trip, rollback, and complete command coverage',async()=>{
   const persisted=await db.transaction(async tx=>{await lock(tx);return loadState(tx);});
   assert.ok(persisted.clubApplications.some(a=>a.name==='Science Society'));

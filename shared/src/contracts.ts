@@ -1,3 +1,4 @@
+import { uploadInputSchema } from "./uploads.js";
 import { z } from "zod";
 import {
   CLUB_INTRODUCTION_MAX_CHARACTERS,
@@ -71,6 +72,7 @@ export const activityInput = z
   );
 const clubInput = z
   .object({
+    attachment: uploadInputSchema.pick({ name: true, base64: true }),
     founderNames: z.array(text).min(1).max(5),
     name: text,
     category: z

@@ -1,3 +1,5 @@
+import { assertFixtureEnvironment } from "./fixture-guard.js";
+assertFixtureEnvironment();
 import { randomBytes } from 'node:crypto';
 import { writeFile,readFile,mkdir } from 'node:fs/promises';
 import { Pool } from 'pg';

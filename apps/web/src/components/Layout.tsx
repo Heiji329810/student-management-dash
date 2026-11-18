@@ -129,6 +129,10 @@ export function Layout() {
         {/* Main Content */}
         <main className="flex-1 overflow-auto">
           <div className="mx-auto w-full px-4 py-6 sm:px-6 sm:py-8">
+            {currentUser.readOnly && <div role="status" className="mb-6 rounded-md border border-border bg-muted/50 p-4">
+              <p className="font-semibold">{language === 'en' ? 'Your account is read-only' : '您的帳號目前為唯讀模式'}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{language === 'en' ? 'Your two-year access period has ended. You can still browse your records and past contributions, but cannot edit, post, join clubs, rate clubs, or approve accounts.' : '您的兩年使用期限已結束。您仍可查看紀錄與過往內容，但無法編輯、發文、加入社團、評分或核准帳號。'}</p>
+            </div>}
             <Outlet />
           </div>
         </main>

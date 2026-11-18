@@ -1,7 +1,9 @@
+import { prepareFile } from "./filePreview.js";
+import { MAX_STUDENT_UPLOAD_BYTES } from "@student-dash/shared/uploads";
 import { MIN_PRESENT_SESSIONS_TO_RATE, countPresentSessions } from "@student-dash/shared/clubRatings";
 import { isActivityPast } from "@student-dash/shared/activities";
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { CommandName } from "@student-dash/shared/contracts";
 import { commandSchemas } from "@student-dash/shared/contracts";
 import type { AppState } from "@student-dash/shared/state";
@@ -9,7 +11,7 @@ import type { User } from "@student-dash/shared/types";
 import { canModerateJournalComment, journalCommentClub } from "./commentModeration.js";
 import { createDomain } from "./domain.js";
 import { HttpError } from "./errors.js";
-import { media } from "./schema.js";
+import { media, studentUploads, uploadVersions } from "./schema.js";
 import type { Database } from "./store.js";
 
 const teacherOnly = new Set<CommandName>([
@@ -289,6 +291,17 @@ export async function executeCommand(
     )
       throw new HttpError(422, "Reply must belong to the same journal");
   }
+  let attachment: { name: string; base64: string } | undefined;
+  let prepared: Awaited<ReturnType<typeof prepareFile>> | undefined;
+  if (command === "submitClubApplication") {
+    const input = args[0] as import("@student-dash/shared/types").CreateClubInput;
+    attachment = input.attachment!;
+    prepared = await prepareFile(attachment.name, attachment.base64);
+    const [usage] = await db.select({ total: sql<number>`coalesce(sum(${uploadVersions.size}),0)::int` }).from(uploadVersions).innerJoin(studentUploads, eq(studentUploads.id, uploadVersions.uploadId)).where(eq(studentUploads.ownerId, user.id));
+    if (usage.total + prepared.size > MAX_STUDENT_UPLOAD_BYTES) throw new HttpError(409, "Your 100 MB file storage limit has been reached.");
+    const { attachment: _attachment, ...details } = input;
+    args[0] = details;
+  }
   const domain = createDomain(state, user, users);
   // Schemas validate the heterogeneous tuple before dispatch; retain a single boundary.
   const result = (domain[command] as (...args: any[]) => boolean | void)(
@@ -296,5 +309,11 @@ export async function executeCommand(
   );
   if (result === false && command !== "toggleJournalLike")
     throw new HttpError(409, "Action is not allowed in the current state");
+  if (attachment && prepared) {
+    const application = state.clubApplications[0];
+    const uploadId = randomUUID();
+    await db.insert(studentUploads).values({ id: uploadId, applicationId: application.id, ownerId: user.id });
+    await db.insert(uploadVersions).values({ id: randomUUID(), uploadId, version: 1, name: attachment.name, base64: attachment.base64, ...prepared });
+  }
   return result ?? true;
 }

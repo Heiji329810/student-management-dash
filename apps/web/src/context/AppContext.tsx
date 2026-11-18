@@ -96,6 +96,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           clearSession('Your session expired. Please sign in again.');
           return false;
         }
+        if (response.status === 403) {
+          const body = await response.json();
+          clearSession(body.error?.message ?? 'Your account does not have access.');
+          return false;
+        }
         const result = stateResponseSchema.parse(await responseBody(response));
         if (!mounted.current || epoch !== generation.current || sequence !== requestSequence.current) return false;
         const expectedIdentity = checkedSessionId ?? identity.current;
@@ -182,6 +187,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const execute = useCallback(async <K extends CommandName>(command: K, args: CommandArgs<K>): Promise<boolean> => {
     if (writing.current) return false;
+    if (currentUser?.readOnly || (currentUser?.expiresAt && Date.now() >= Date.parse(currentUser.expiresAt))) {
+      setError('Your account is read-only. You can view your records, but cannot make changes.');
+      return false;
+    }
     if (!identity.current) { setError('Please sign in to continue.'); return false; }
     const validated = commandSchemas[command].safeParse(args);
     if (!validated.success) {
@@ -220,7 +229,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (epoch !== generation.current) void refresh();
       }
     }
-  }, [applyState, clearSession, refresh]);
+  }, [applyState, clearSession, refresh, currentUser]);
 
   const commands = useMemo(() => Object.fromEntries(
     (Object.keys(commandSchemas) as CommandName[]).map(command => [command, (...args: CommandArgs<typeof command>) => execute(command, args)]),

@@ -1,3 +1,4 @@
+import { ApplicationFiles } from './pages/ApplicationFiles';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { ThemeProvider } from './components/ThemeProvider';
@@ -25,6 +26,7 @@ import { RedirectAddActivity } from './pages/RedirectAddActivity';
 import { ClubDetail } from './pages/ClubDetail';
 import { ClubMembers } from './pages/ClubMembers';
 import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
 import { TeacherClubParticipation } from './pages/TeacherClubParticipation';
 import { StudentCouncil } from './pages/StudentCouncil';
 import { NewStudentCouncilYear } from './pages/NewStudentCouncilYear';
@@ -39,6 +41,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
             <Route
               path="/"
               element={
@@ -57,6 +60,7 @@ function App() {
               <Route path="clubs/:clubId/members" element={<ClubMembers />} />
               <Route path="clubs/:clubId" element={<ClubDetail />} />
               <Route path="registrations" element={<Registrations />} />
+              <Route path="club-applications/:applicationId" element={<ApplicationFiles />} />
               <Route path="create-club" element={<CreateClub />} />
               <Route path="manage" element={<ManageClubsAndActivities />} />
               <Route path="manage/clubs" element={<ManageClubs />} />
